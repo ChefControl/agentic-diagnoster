@@ -3,9 +3,9 @@
 An AI agent that investigates a local Kubernetes cluster, finds the root cause
 of an issue, backs it with evidence, and recommends the next action.
 
-> **Status:** the cluster, safety boundary, failure scenarios and the reviewer
-> UI are done. Next: the chat for asking the agent, then the agent itself, its
-> observability and evals, and containers.
+> **Status:** the cluster, safety boundary, failure scenarios, the reviewer UI
+> and the chat are done. Next: the agent itself, its observability and evals,
+> and containers.
 
 ## Prerequisites
 
@@ -34,9 +34,9 @@ docker run -d --name phoenix -p 127.0.0.1:6006:6006 -p 127.0.0.1:4317:4317 \
 
 Phoenix 21 turns on login by default, so local use sets `PHOENIX_ENABLE_AUTH=false`.
 
-In the UI, **Scenarios** lists every scenario with its injected fault. Deploy
-one and wait until it shows **Reproduced**: every line of its designed state is
-checked and it is ready to investigate.
+In the UI, **Ask the agent** is the chat and **Scenarios** lists every scenario
+with its injected fault. Deploy one and wait until it shows **Reproduced**:
+every line of its designed state is checked and it is ready to investigate.
 
 ## Cluster
 
@@ -128,6 +128,14 @@ the namespace, because its access rules belong to `cluster.sh`.
 TypeScript. The browser never talks to Kubernetes directly: the API does, as
 the `diagnoster-scenario-manager` identity.
 
+The chat is [assistant-ui](https://www.assistant-ui.com), added through the
+shadcn CLI (`ui/components.json`): its components are copied into
+`ui/src/web/components/` and themed with our palette in
+`ui/src/web/tailwind.css`. Only the chat uses Tailwind; the rest of the UI is
+plain CSS in `ui/src/web/styles.css`, kept in its own CSS layer so the two
+don't override each other. Connecting the agent means replacing one adapter in
+`ui/src/web/AgentChat.tsx`.
+
 ```
 ui/src/web/       React UI
 ui/src/server/    API, scenario logic and checks, CLI
@@ -135,12 +143,20 @@ ui/src/shared/    types shared by both
 ui/test/          unit tests (no cluster needed)
 ```
 
-**Scenarios** (`#/scenarios`) is written for the reviewer (a white box): every
-scenario with its injected fault, category, state and deploy and reset buttons.
-Each scenario page shows the injected fault, whether it is ready to
-investigate, and the answer key: category, resource, the facts the agent must
-find and the correct fix, with grading details (evidence sources, ungraded
-facts, unsafe fixes and why) behind a toggle.
+The sidebar has two sections:
+
+- **Ask the agent** (`#/`): the user-facing product, a chat in the style of
+  mainstream AI assistants. You describe a problem in your own words and the
+  agent investigates; it knows nothing about scenarios or answer keys. Example
+  questions start a conversation with one click. Until the agent exists, the
+  chat answers that it isn't connected yet.
+- **Scenarios** (`#/scenarios`), for the reviewer (a white box): every scenario
+  with its injected fault, category, state and deploy and reset buttons. Each
+  scenario page shows the injected fault, whether it is ready to investigate,
+  a button that opens Ask the agent with the scenario's question, and the answer
+  key: category, resource, the facts the agent must find and the correct fix,
+  with grading details (evidence sources, ungraded facts, unsafe fixes and why)
+  behind a toggle.
 
 Traces and eval results are not rebuilt in the UI: they live in Phoenix, which
 the sidebar links to.

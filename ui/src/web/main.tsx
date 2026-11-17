@@ -1,6 +1,6 @@
 import "@fontsource-variable/schibsted-grotesk";
 import "@fontsource-variable/jetbrains-mono";
-import "./styles.css";
+import "./tailwind.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
