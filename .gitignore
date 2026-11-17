@@ -1,2 +1,7 @@
 # Task description (not part of the repo)
 *.pdf
+.kube/
+.env
+.claude/worktrees/
+node_modules/
+ui/dist/

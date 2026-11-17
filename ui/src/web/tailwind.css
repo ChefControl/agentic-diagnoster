@@ -1,0 +1,57 @@
+/* Layer order: Tailwind's reset (base) < our own styles (app) < component
+   classes < utilities. Our stylesheet sits in its own layer so Tailwind
+   utilities used by the chat components can override it, while it still wins
+   over Tailwind's reset everywhere else. */
+@layer theme, base, app, components, utilities;
+
+@import "tailwindcss";
+@import "./styles.css" layer(app);
+@import "tw-shimmer";
+
+@custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));
+
+@custom-variant data-closed (&:where([data-state="closed"], [data-closed]:not([data-closed="false"])));
+
+@theme inline {
+  @keyframes collapsible-down {
+  from {
+    height: 0;
+    }
+  to {
+    height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    }
+  }
+  @keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    }
+  to {
+    height: 0;
+    }
+  }
+}
+/* The colour names shadcn and assistant-ui components use, mapped onto our
+   palette. Our tokens already follow the system light or dark setting, and
+   Tailwind's dark: variant does too, so no .dark class is needed. */
+@theme inline {
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--paper);
+  --color-secondary: var(--raised);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--raised);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--raised);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--fail);
+  --color-border: var(--hairline-strong);
+  --color-input: var(--hairline-strong);
+  --color-ring: var(--focus);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-id);
+}
