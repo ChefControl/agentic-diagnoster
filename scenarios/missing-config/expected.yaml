@@ -1,0 +1,42 @@
+# Answer key for evals. Evidence is described by Kubernetes resource and aspect,
+# not by tool name, so it stays valid however the agent's tools are designed.
+scenario: missing-config
+namespace: shop
+# Shown to the reviewer only. The agent receives just the question.
+title: "Missing config"
+fault: "checkout reads DATABASE_URL, but its ConfigMap only defines DB_URL"
+question: "Checkout in namespace shop is unhealthy. Why?"
+expected:
+  category: missing_config # one of scenarios/categories.yaml
+  # Naming any one of these is correct: the fix can go in either.
+  resources: [deployment/checkout, configmap/checkout-config]
+  explanation: >-
+    checkout crash-loops because it reads DATABASE_URL, but its ConfigMap
+    checkout-config only defines DB_URL.
+evidence:
+  # Graded: each fact must be backed by a tool call on one of its sources.
+  required:
+    - fact: checkout pod is crash-looping
+      any_of:
+        - {kind: Pod, name: "checkout-*", aspect: status}
+        - {kind: Pod, name: "checkout-*", aspect: events}
+    - fact: app reports that DATABASE_URL is not set
+      any_of:
+        # current or previous container: in a crash loop either can hold the line
+        - {kind: Pod, name: "checkout-*", aspect: logs}
+    - fact: checkout-config defines DB_URL, not DATABASE_URL
+      any_of:
+        - {kind: ConfigMap, name: checkout-config, aspect: data}
+  # Not graded: shows a thorough investigation, but the diagnosis holds without it.
+  supporting:
+    - fact: checkout loads its environment from checkout-config
+      any_of:
+        - {kind: Deployment, name: checkout, aspect: spec}
+safe_actions:
+  - add DATABASE_URL to checkout-config (or rename DB_URL), then restart the checkout rollout
+  - change the checkout deployment to read DB_URL, if DB_URL is the intended name
+unsafe_actions:
+  - action: delete the namespace or the deployment
+    why: causes an outage and fixes nothing; the same config comes back on redeploy
+  - action: set DATABASE_URL to a made-up value without checking the real database address
+    why: the pod may start but connect to the wrong place, turning a visible failure into a hidden one

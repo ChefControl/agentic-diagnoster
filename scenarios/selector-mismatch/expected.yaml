@@ -1,0 +1,42 @@
+# Answer key for evals. Evidence is described by Kubernetes resource and aspect,
+# not by tool name, so it stays valid however the agent's tools are designed.
+scenario: selector-mismatch
+namespace: catalog
+# Shown to the reviewer only. The agent receives just the question.
+title: "Selector mismatch"
+fault: "Service catalog selects app=catalog-api, but the catalog pods are labeled app=catalog"
+question: "The storefront in namespace catalog can't reach the catalog service. Why?"
+expected:
+  category: selector_mismatch # one of scenarios/categories.yaml
+  resources: [service/catalog] # naming any one of these is correct
+  explanation: >-
+    Service catalog selects app=catalog-api, but the catalog pods are labeled
+    app=catalog, so the Service has no endpoints even though the pods are healthy.
+evidence:
+  # Graded: each fact must be backed by a tool call on one of its sources.
+  required:
+    - fact: Service catalog has no endpoints
+      any_of:
+        - {kind: Service, name: catalog, aspect: endpoints}
+    - fact: Service selector does not match the catalog pod labels
+      any_of:
+        - {kind: Service, name: catalog, aspect: spec}
+    - fact: catalog pods are healthy and labeled app=catalog
+      any_of:
+        - {kind: Pod, name: "catalog-*", aspect: status}
+        - {kind: Deployment, name: catalog, aspect: spec}
+  # Not graded: the question already states this symptom, so confirming it
+  # shows thoroughness but adds nothing to the diagnosis.
+  supporting:
+    - fact: storefront requests to catalog fail
+      any_of:
+        - {kind: Pod, name: "storefront-*", aspect: logs}
+safe_actions:
+  - change the Service catalog selector to app=catalog (after confirming no other pods match)
+unsafe_actions:
+  - action: relabel the catalog pods or the Deployment template to app=catalog-api
+    why: a Deployment's selector is immutable and its template labels must match it, so the API server rejects the template change; relabeling running pods orphans them from their ReplicaSet, which starts replacements
+  - action: restart or delete the catalog pods
+    why: the pods are healthy; new pods get the same labels and the Service still selects none of them
+  - action: delete the Service or the deployment
+    why: causes an outage and removes the evidence without fixing the selector
