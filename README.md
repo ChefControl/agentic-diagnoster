@@ -3,25 +3,40 @@
 An AI agent that investigates a local Kubernetes cluster, finds the root cause
 of an issue, backs it with evidence, and recommends the next action.
 
-> **Status:** the local cluster, its safety boundary and four failure scenarios
-> are done. Next: a UI to run them, then the agent itself, its observability
-> and evals, and containers.
+> **Status:** the cluster, safety boundary, failure scenarios and the reviewer
+> UI are done. Next: the chat for asking the agent, then the agent itself, its
+> observability and evals, and containers.
 
 ## Prerequisites
 
 - Docker
 - [kind](https://kind.sigs.k8s.io/) (tested with v0.32.0)
 - kubectl
-- Node.js 22+ (for the scenario tooling, until it is containerized)
+- Node.js 22+ (for the UI, until it is containerized)
+- [Arize Phoenix](https://arize.com/docs/phoenix) for agent traces and eval
+  results (one Docker container, see below)
 
 ## Quick start
 
 ```bash
 ./cluster.sh --up          # create the cluster and the safety boundary (~30s)
 cd ui && npm install
-npm run scenarios -- deploy all
-npm run scenarios -- check all --wait 180   # wait until each reproduces
+npm run dev                # open http://localhost:5173
 ```
+
+Phoenix stores the agent's traces and eval experiments. Run it locally:
+
+```bash
+docker run -d --name phoenix -p 127.0.0.1:6006:6006 -p 127.0.0.1:4317:4317 \
+  -e PHOENIX_ENABLE_AUTH=false -e PHOENIX_TELEMETRY_ENABLED=false \
+  -v phoenix-data:/root/.phoenix arizephoenix/phoenix:21.1.0
+```
+
+Phoenix 21 turns on login by default, so local use sets `PHOENIX_ENABLE_AUTH=false`.
+
+In the UI, **Scenarios** lists every scenario with its injected fault. Deploy
+one and wait until it shows **Reproduced**: every line of its designed state is
+checked and it is ready to investigate.
 
 ## Cluster
 
@@ -41,7 +56,7 @@ tokens when they expire.
 The script always passes `--context kind-diagnoster` to kubectl, so it never
 touches whatever cluster your kubeconfig currently points at.
 
-It does not deploy scenario workloads: the scenario tooling does.
+It does not deploy scenario workloads: the UI does.
 
 ## Failure scenarios
 
@@ -92,7 +107,7 @@ before the agent investigates) lives in
 
 ### Deploy, reset and check
 
-From the command line (the UI in the next step uses the same code):
+From the UI, or from the command line using the same code:
 
 ```bash
 cd ui
@@ -107,26 +122,49 @@ again. Clearing events matters: Kubernetes keeps them for an hour, and the
 agent should never investigate a previous run's history. Reset never deletes
 the namespace, because its access rules belong to `cluster.sh`.
 
-The scenario code (loading, deploying, checking, the CLI and its unit tests)
-lives in [ui/](ui/), next to the UI that will use it:
+## UI
+
+[ui/](ui/) is a React + Vite front end with a small Node API (Fastify) in
+TypeScript. The browser never talks to Kubernetes directly: the API does, as
+the `diagnoster-scenario-manager` identity.
 
 ```
-ui/src/server/    scenario loading, designed-state checks, Kubernetes access, CLI
-ui/src/shared/    types
+ui/src/web/       React UI
+ui/src/server/    API, scenario logic and checks, CLI
+ui/src/shared/    types shared by both
 ui/test/          unit tests (no cluster needed)
 ```
 
+**Scenarios** (`#/scenarios`) is written for the reviewer (a white box): every
+scenario with its injected fault, category, state and deploy and reset buttons.
+Each scenario page shows the injected fault, whether it is ready to
+investigate, and the answer key: category, resource, the facts the agent must
+find and the correct fix, with grading details (evidence sources, ungraded
+facts, unsafe fixes and why) behind a toggle.
+
+Traces and eval results are not rebuilt in the UI: they live in Phoenix, which
+the sidebar links to.
+
 ```bash
+npm run dev         # API on :8787 and UI on :5173 with live reload
 npm test            # unit tests
 npm run typecheck
+npm run build && npm start   # production: one server on :8787 serving UI and API
 ```
 
 Configuration is environment-based:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SCENARIO_MANAGER_KUBECONFIG` | `.kube/scenario-manager.kubeconfig` | the scenario tooling's cluster identity |
+| `API_PORT` | `8787` | API server port |
+| `HOST` | `127.0.0.1` | API bind address |
+| `SCENARIO_MANAGER_KUBECONFIG` | `.kube/scenario-manager.kubeconfig` | the UI's cluster identity |
 | `SCENARIOS_DIR` | `scenarios/` | scenario definitions |
+| `PHOENIX_URL` | `http://localhost:6006` | where the UI links to traces and evals, and checks that Phoenix is up |
+
+The kubeconfig is read on every request, so recreating the cluster needs no
+restart. If the cluster is down or the token expired, the UI says so and tells
+you to run `./cluster.sh --up`.
 
 ## Safety boundary
 
@@ -139,11 +177,10 @@ confused or prompt-injected agent still can't exceed these permissions.
 |---|---|---|---|
 | `diagnoster-reader` | the agent, every investigation step | get/list pods, logs, events, Services, endpoints, ConfigMaps, Deployments, ReplicaSets in the four scenario namespaces | read Secrets, exec into pods, change anything, see any other namespace |
 | `diagnoster-remediator` | the agent's one fix, after approval | get and patch `deployment/payments-api` in `payments` | anything else, including scaling or deleting that same Deployment |
-| `diagnoster-scenario-manager` | the scenario tooling, to deploy and reset scenarios | create, change and delete workloads, and clear events, in the four scenario namespaces | read Secrets, exec, create RoleBindings, delete namespaces, touch any other namespace |
+| `diagnoster-scenario-manager` | the UI, to deploy and reset scenarios | create, change and delete workloads, and clear events, in the four scenario namespaces | read Secrets, exec, create RoleBindings, delete namespaces, touch any other namespace |
 
-The access rules are owned by `cluster.sh`, not by the scenario tooling: it can
-fill the scenario namespaces with workloads, but it can never change who may do
-what.
+The access rules are owned by `cluster.sh`, not by the UI: the UI can fill the
+scenario namespaces with workloads, but it can never change who may do what.
 
 `--up` checks every row of this table with `kubectl auth can-i` and fails on
 any surprise, so the boundary is tested, not just described.
@@ -160,12 +197,12 @@ change). Each identity gets two:
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs two jobs:
 
-- **build:** shellcheck on `cluster.sh`, then type-check and unit tests. No
-  cluster needed.
+- **build:** shellcheck on `cluster.sh`, then type-check, unit tests and a
+  production build of the UI. No cluster needed.
 - **cluster:** `./cluster.sh --up` (which verifies all permissions), deploys
-  every scenario through the scenario CLI, waits until each reproduces, checks
-  that reset restores the broken state, and confirms the agent's identity can't
-  read Secrets.
+  every scenario through the same TypeScript code the UI uses, waits until each
+  reproduces, checks that reset restores the broken state, and confirms the
+  agent's identity can't read Secrets.
 
 No LLM is involved in either, so both are free and deterministic.
 
@@ -176,7 +213,7 @@ cluster.sh                   the one script: --up / --down
 cluster/kind-config.yaml     kind cluster (node image pinned by digest)
 rbac/diagnoster-rbac.yaml    identities, roles, scenario namespaces, access rules
 scenarios/<name>/            manifest and answer key per scenario
-ui/                          scenario code and CLI (the UI comes next)
+ui/                          the UI and its API
 ```
 
 ## Notes
