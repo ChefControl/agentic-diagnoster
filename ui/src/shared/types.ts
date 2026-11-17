@@ -93,6 +93,11 @@ export interface ScenarioSpec {
   } | null;
 }
 
+export interface PhoenixStatus {
+  url: string | null; // null when PHOENIX_URL is not configured
+  reachable: boolean;
+}
+
 export interface ClusterHealth {
   reachable: boolean;
   message?: string;

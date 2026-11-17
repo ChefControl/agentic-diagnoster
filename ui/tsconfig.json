@@ -8,6 +8,7 @@
     ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "isolatedModules": true,
@@ -16,12 +17,14 @@
     "skipLibCheck": true,
     "noEmit": true,
     "types": [
-      "node"
+      "node",
+      "vite/client"
     ]
   },
   "include": [
     "src",
     "test",
+    "vite.config.ts",
     "vitest.config.ts"
   ]
 }
