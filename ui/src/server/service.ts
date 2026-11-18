@@ -32,13 +32,16 @@ export class ScenarioService {
 
   async status(id: string): Promise<ScenarioStatus> {
     const scenario = this.get(id);
-    const snapshot = await this.cluster().snapshot(scenario.namespace, checksFor(id).logsFrom);
+    const cluster = this.cluster();
+    const snapshot = await cluster.snapshot(scenario.namespace, checksFor(id).logsFrom);
     const checks = runChecks(id, snapshot);
+    const changes = snapshot.deployments.length > 0 ? await cluster.changes(scenario) : [];
     return {
       id,
       namespace: scenario.namespace,
-      state: stateOf(snapshot, checks),
+      state: stateOf(snapshot, checks, changes),
       checks,
+      changes,
       pods: summarizePods(snapshot),
       events: summarizeEvents(snapshot.events),
     };
