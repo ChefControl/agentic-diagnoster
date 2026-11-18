@@ -5,3 +5,5 @@
 .claude/worktrees/
 node_modules/
 ui/dist/
+.venv/
+__pycache__/
