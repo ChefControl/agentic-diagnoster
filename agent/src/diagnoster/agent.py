@@ -6,7 +6,7 @@ and a RunReport that always comes back, finished or stopped.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -45,12 +45,14 @@ Rules:
 """
 
 
-def build_agent(settings: Settings, model: Model | str | None = None) -> Agent[RunDeps, Diagnosis]:
+def build_agent(
+    settings: Settings, model: Model | str | None = None, system_prompt: str | None = None
+) -> Agent[RunDeps, Diagnosis]:
     agent = Agent(
         model or settings.model,
         output_type=Diagnosis,
         deps_type=RunDeps,
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=system_prompt or SYSTEM_PROMPT,
         toolsets=[build_toolset(settings.namespaces)],
         retries={"tools": 2, "output": 2},
         name="diagnoster",
@@ -85,11 +87,17 @@ async def diagnose(
     cluster: Cluster,
     *,
     model: Model | str | None = None,
+    system_prompt: str | None = None,
+    attributes: Mapping[str, str] | None = None,
     tracer_provider: TracerProvider | None = None,
     after: Callable[[RunReport], None] | None = None,
     raise_model_errors: bool = False,
 ) -> RunReport:
     """Run the agent once. Never raises for a failed run: it returns a stopped report.
+
+    `system_prompt` replaces the prompt in this file for one run: Phoenix's
+    Playground sends the prompt being tried. `attributes` are added to the
+    root span.
 
     `after` runs inside the root span once the report exists, so whatever it
     does (the remediation workflow) lands in the same trace as the run.
@@ -99,7 +107,7 @@ async def diagnose(
     as a wrong answer.
     """
     tracer = (tracer_provider or trace.get_tracer_provider()).get_tracer("diagnoster")
-    agent = build_agent(settings, model)
+    agent = build_agent(settings, model, system_prompt)
     deps = RunDeps(cluster=cluster)
     limits = UsageLimits(request_limit=settings.request_limit, tool_calls_limit=settings.tool_calls_limit)
 
@@ -109,6 +117,7 @@ async def diagnose(
         span.set_attribute("openinference.span.kind", "CHAIN")
         span.set_attribute("input.value", question)
         span.set_attribute("diagnoster.model", str(model or settings.model))
+        span.set_attributes(dict(attributes or {}))
         model_error: Exception | None = None
         try:
             result = await agent.run(question, deps=deps, usage_limits=limits, timeout=settings.run_timeout_s)
