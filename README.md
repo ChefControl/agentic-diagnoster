@@ -117,6 +117,17 @@ npm run scenarios -- reset bad-probe             # back to broken, e.g. after a 
 npm run scenarios -- remove bad-probe
 ```
 
+A deployed scenario is in one of three states:
+
+- **Settling:** not yet broken the way it was designed.
+- **Reproduced:** every designed-state check passes, so it is ready to investigate.
+- **Changed:** someone changed it after deploy, for example the agent's
+  approved fix or a manual `kubectl edit`. Reset to restore it.
+
+  Detecting this needs no extra bookkeeping. Deploy uses server-side apply,
+  which records who manages each field. A dry-run apply then reports every
+  field someone else has since changed, and who changed it.
+
 **Reset** deletes the scenario's workloads and its events, then deploys it
 again. Clearing events matters: Kubernetes keeps them for an hour, and the
 agent should never investigate a previous run's history. Reset never deletes
