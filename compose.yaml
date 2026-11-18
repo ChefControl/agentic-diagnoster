@@ -4,7 +4,7 @@
 #   docker compose up -d --build
 #
 # UI:      http://localhost:8787
-# Phoenix: http://localhost:6006
+# Phoenix: http://localhost:6006  (traces, and the evals: see phoenix-setup)
 # Agent:   http://localhost:8000  (OpenAI chat-completions format)
 
 services:
@@ -37,17 +37,19 @@ services:
     depends_on: [phoenix]
     restart: unless-stopped
 
-  # The agent as an HTTP service. Phoenix calls it like a chat model:
-  #   http://agent:8000/live/v1      diagnoses the real cluster
-  #   http://agent:8000/recorded/v1  replays a saved snapshot, no cluster needed
+  # The agent as an HTTP service. Phoenix calls it like a chat model, in
+  # OpenAI's format (/v1/chat/completions) or Anthropic's (/v1/messages).
+  # CLUSTER_MODE in .env picks the cluster: live (default) or recorded, a saved
+  # snapshot of the four scenarios that needs no cluster.
   agent:
     build:
       context: .
       dockerfile: agent/Dockerfile
     ports:
       - "127.0.0.1:8000:8000"
-    # MODEL and the model provider's API key. Without the file the service
-    # still starts, and each request fails with a message naming the missing key.
+    # OPENAI_API_KEY and/or ANTHROPIC_API_KEY, and optionally MODEL and
+    # CLUSTER_MODE. Without a key the service still starts, and each request
+    # fails with a message naming the missing key.
     env_file:
       - path: .env
         required: false
@@ -69,12 +71,48 @@ services:
     depends_on: [phoenix]
     restart: unless-stopped
 
+  # Runs once after Phoenix starts and puts the evals into it: the agent in the
+  # Playground's model menu (once per vendor whose key is set), the eval
+  # dataset, the three evaluators, and the agent's prompt. Safe to run again:
+  # `docker compose up phoenix-setup`. The image is the agent's; only this
+  # service sees the answer keys. It reads .env only to see which keys are set.
+  phoenix-setup:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    command: ["phoenix-setup"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PHOENIX_INTERNAL_URL: http://phoenix:6006
+      PHOENIX_URL: http://localhost:6006
+      AGENT_URL_FOR_PHOENIX: http://agent:8000
+    user: "${UID:-1000}"
+    volumes:
+      - ./scenarios:/app/scenarios:ro
+    networks: [kind]
+    depends_on:
+      phoenix:
+        condition: service_healthy
+    restart: "no"
+
   phoenix:
     image: arizephoenix/phoenix:21.1.0
+    # The image has no shell or curl, but it has Python.
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
     environment:
       # Phoenix 21 asks for a login by default; this is a local, single-user setup.
       PHOENIX_ENABLE_AUTH: "false"
       PHOENIX_TELEMETRY_ENABLED: "false"
+      # Phoenix's own OpenAI and Anthropic providers: the judge, and any model
+      # you try in the Playground. Taken from .env; an unset one stays empty.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "127.0.0.1:6006:6006" # UI and OTLP over HTTP
       - "127.0.0.1:4317:4317" # OTLP over gRPC

@@ -498,6 +498,15 @@ details[open] > summary .disclosure {
   vertical-align: middle;
 }
 
+.evals {
+  margin-top: 48px;
+}
+
+.evals-link {
+  gap: 8px;
+  margin-top: 16px;
+}
+
 .row-link {
   font-weight: 500;
   white-space: nowrap;
