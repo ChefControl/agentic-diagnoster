@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint cluster.sh
+        run: shellcheck cluster.sh
+
+  # Proves the safety boundary holds: cluster.sh --up checks every
+  # permission with the API server and fails on any surprise.
+  cluster:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kind
+        run: |
+          curl -fsSLo kind https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64
+          chmod +x kind && sudo mv kind /usr/local/bin/kind
+      - name: Create cluster and verify permissions
+        run: ./cluster.sh --up
+      - name: Agent reader cannot read Secrets
+        run: "! kubectl --kubeconfig .kube/reader.kubeconfig -n shop get secrets"
+      - name: Dump cluster state
+        if: failure()
+        run: kubectl --context kind-diagnoster get all,events -A
