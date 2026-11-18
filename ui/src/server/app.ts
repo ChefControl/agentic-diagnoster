@@ -7,7 +7,8 @@ import { ScenarioBusyError, type ScenarioService, UnknownScenarioError } from ".
 
 interface Options {
   service: ScenarioService;
-  phoenixUrl?: string;
+  phoenixUrl?: string; // the link the browser opens
+  phoenixInternalUrl?: string; // where the API checks Phoenix; defaults to phoenixUrl
   webDir?: string; // serve the built UI from here (production)
   logger?: boolean;
 }
@@ -35,7 +36,7 @@ function hostname(host: string | undefined): string {
 
 const CHANGES = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-export function buildApp({ service, phoenixUrl, webDir, logger = false }: Options): FastifyInstance {
+export function buildApp({ service, phoenixUrl, phoenixInternalUrl, webDir, logger = false }: Options): FastifyInstance {
   const app = Fastify({ logger });
 
   app.addHook("onRequest", async (req, reply) => {
@@ -68,7 +69,7 @@ export function buildApp({ service, phoenixUrl, webDir, logger = false }: Option
   // Phoenix holds the traces and eval experiments; the UI links to it.
   app.get("/api/phoenix", async (): Promise<PhoenixStatus> => {
     if (!phoenixUrl) return { url: null, reachable: false };
-    const reachable = await fetch(`${phoenixUrl}/healthz`, { signal: AbortSignal.timeout(1500) }).then(
+    const reachable = await fetch(`${phoenixInternalUrl ?? phoenixUrl}/healthz`, { signal: AbortSignal.timeout(1500) }).then(
       (r) => r.ok,
       () => false,
     );
