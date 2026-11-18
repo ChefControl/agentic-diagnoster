@@ -46,15 +46,15 @@ def openai_content(response) -> str:
 
 
 def report_in(content: str) -> RunReport:
-    """The reply's last fenced json block is the full report."""
-    block = content[content.rindex("```json\n") + len("```json\n") : content.rindex("\n```")]
-    return RunReport.model_validate_json(block)
+    """The reply is JSON: the report plus the model, the cluster and the trace link."""
+    reply = json.loads(content)
+    return RunReport.model_validate({k: v for k, v in reply.items() if k not in ("model", "cluster", "trace_url")})
 
 
 def test_the_openai_format_answers_with_a_summary_and_the_full_report():
     content = openai_content(client().post("/v1/chat/completions", json=ASK))
-    assert content.startswith("**Root cause**: selector_mismatch in service/catalog")
-    assert "\nCluster: live\n" in content
+    assert json.loads(content)["cluster"] == "live"
+    assert report_in(content).diagnosis.root_cause.resource == "service/catalog"
     report = report_in(content)
     assert report.status == "complete"
     assert [c.tool for c in report.tool_calls] == ["get_service"]
@@ -66,8 +66,7 @@ def test_the_anthropic_format_gives_the_same_answer_as_a_claude_message():
     message = response.json()
     assert (message["type"], message["role"], message["stop_reason"]) == ("message", "assistant", "end_turn")
     content = message["content"][0]["text"]
-    assert content.startswith("**Root cause**: selector_mismatch in service/catalog")
-    assert report_in(content).status == "complete"
+    assert report_in(content).diagnosis.root_cause.category == "selector_mismatch"
 
 
 def test_recorded_mode_answers_from_the_snapshot_with_no_cluster():
@@ -77,7 +76,7 @@ def test_recorded_mode_answers_from_the_snapshot_with_no_cluster():
     # Settings without the catalog namespace: the snapshot brings its own.
     settings = Settings(model="openai:the-default", namespaces=("elsewhere",), cluster_mode="recorded")
     content = openai_content(client(settings=settings, live=no_cluster).post("/v1/chat/completions", json=ASK))
-    assert "\nCluster: recorded\n" in content
+    assert json.loads(content)["cluster"] == "recorded"
     report = report_in(content)
     assert report.status == "complete"
     assert report.tool_calls[0].sources  # the Service was found in the snapshot
@@ -132,7 +131,7 @@ def test_the_reply_names_the_model_that_answered():
     response = app.post("/v1/messages", json=CLAUDE_ASK)
     assert asked == ["anthropic:claude-haiku-5-5"]
     assert response.json()["model"] == "anthropic:claude-haiku-5-5"
-    assert "\nModel: anthropic:claude-haiku-5-5\n" in response.json()["content"][0]["text"]
+    assert json.loads(response.json()["content"][0]["text"])["model"] == "anthropic:claude-haiku-5-5"
 
 
 def test_an_openai_stream_carries_the_same_answer_in_openai_chunks():
@@ -209,7 +208,6 @@ def test_the_anthropic_error_shape():
 def test_a_run_that_hits_a_limit_is_still_an_answer():
     settings = Settings(namespaces=("catalog",), tool_calls_limit=1)
     content = openai_content(client(FunctionModel(loop_forever), settings).post("/v1/chat/completions", json=ASK))
-    assert content.startswith("**Stopped**: tool_call_limit after 1 tool calls.")
     assert report_in(content).stop_reason == "tool_call_limit"
 
 
@@ -278,7 +276,7 @@ def test_the_root_span_says_the_cluster_and_where_the_prompt_came_from(spans):
     assert root.attributes["diagnoster.cluster"] == "recorded"
     assert root.attributes["diagnoster.prompt_source"] == "request"
     # The reply links to this trace: Phoenix sends no trace context, so this is the only link.
-    assert f"Trace: http://phoenix.test/redirects/traces/{format(root.context.trace_id, '032x')}" in content
+    assert json.loads(content)["trace_url"] == f"http://phoenix.test/redirects/traces/{format(root.context.trace_id, '032x')}"
 
 
 def dataclasses_replace(settings, **changes):

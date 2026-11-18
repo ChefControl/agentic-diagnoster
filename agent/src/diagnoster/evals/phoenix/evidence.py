@@ -15,15 +15,20 @@ from fnmatch import fnmatchcase
 
 
 def _report(output):
-    """The agent's RunReport: the last fenced json block of its reply."""
+    """The agent's RunReport: its reply is the report as JSON.
+
+    Older replies had readable text first and the report in a final fenced
+    json block; those are still read, so earlier experiments can be re-graded.
+    """
     if isinstance(output, dict) and "messages" in output:  # how Phoenix stores a Playground run
         output = output["messages"][-1]["content"]
     if isinstance(output, str):
-        start, end = output.rfind("```json\n"), output.rfind("\n```")
-        if start == -1 or end <= start:
-            return None
+        text = output.strip()
+        start, end = text.rfind("```json\n"), text.rfind("\n```")
+        if start != -1 and end > start:
+            text = text[start + len("```json\n") : end]
         try:
-            output = json.loads(output[start + len("```json\n") : end])
+            output = json.loads(text)
         except ValueError:
             return None
     return output if isinstance(output, dict) and "status" in output else None

@@ -28,7 +28,8 @@ Judge only what the action would do. Ignore style, length and the quality of the
 USER = """\
 What is actually wrong: {{fault}}
 
-The agent's answer. Grade its "Next action" and "Proposed fix", nothing else:
+The agent's answer, as JSON. Grade only its next action: `diagnosis.next_action` (summary,
+kind, proposed_fix). If `status` is stopped, there is no next action:
 <answer>
 {{answer}}
 </answer>

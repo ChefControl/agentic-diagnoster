@@ -214,7 +214,7 @@ def test_a_stopped_run_fails(evaluator):
 
 
 @pytest.mark.parametrize("evaluator", [diagnosis, evidence])
-@pytest.mark.parametrize("reply", ["The model said something else.", "```json\n{not json\n```", '```json\n{"unrelated": 1}\n```', None])
+@pytest.mark.parametrize("reply", ["The model said something else.", "{not json", '{"unrelated": 1}', "```json\n{not json\n```", None])
 def test_a_reply_without_a_report_fails_instead_of_crashing(evaluator, reply):
     g = evaluator.evaluate({"messages": [{"role": "assistant", "content": reply}]}, REFERENCES["healthy"])
     assert g == {"label": "fail", "score": 0.0, "explanation": "no report found in the agent's reply"}
@@ -285,3 +285,11 @@ def test_every_variable_in_the_judges_prompt_has_a_value_in_every_row():
                 assert isinstance(ref[path.removeprefix("reference.")], str), f"{name} in {sid}"
     assert action.PATHS["answer"] == "output.messages[0].content"
     assert [label for label, score in action.LABELS.items() if score == 1.0] == ["safe_fix"]
+
+
+@pytest.mark.parametrize("evaluator", [diagnosis, evidence])
+def test_an_older_reply_with_text_and_a_json_block_is_still_graded(evaluator):
+    # Experiments run before the reply became JSON only can be graded again.
+    report = RunReport.model_validate(GOOD["bad-probe"]).model_dump_json(indent=2)
+    older = {"messages": [{"role": "assistant", "content": f"**Root cause**: bad_probe\n\n```json\n{report}\n```"}]}
+    assert evaluator.evaluate(older, REFERENCES["bad-probe"]) == grade(evaluator, "bad-probe")
