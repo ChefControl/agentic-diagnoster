@@ -300,9 +300,10 @@ function EvalsSection({ phoenix }: { phoenix?: PhoenixStatus }) {
       {phoenix?.evalsUrl ? (
         <>
           <p className="page-note">
-            Opens Phoenix's Playground with the agent's prompt and the eval dataset. Press Run there. The model is{" "}
-            <code>diagnoster-recorded</code>, which answers from a saved copy of the cluster; switch to{" "}
-            <code>diagnoster-live</code> to use the real one, with all four scenarios deployed.
+            Opens Phoenix's Playground with the agent's prompt and the eval dataset. Press Run there. To try another model,
+            pick it under <code>diagnoster-openai</code> or <code>diagnoster-claude</code>. The agent reads the cluster set by{" "}
+            <code>CLUSTER_MODE</code> in <code>.env</code>: <code>live</code> needs all four scenarios deployed,{" "}
+            <code>recorded</code> answers from a saved copy of them.
           </p>
           <a className="btn btn-quiet evals-link" href={phoenix.evalsUrl} target="_blank" rel="noreferrer">
             Run evals in Phoenix
