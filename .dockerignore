@@ -2,7 +2,7 @@
 **/node_modules
 ui/dist
 .kube
-.env
+**/.env*
 *.pdf
 .git
 .notes

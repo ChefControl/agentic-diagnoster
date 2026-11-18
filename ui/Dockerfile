@@ -21,5 +21,6 @@ ENV HOST=0.0.0.0 \
     API_PORT=8787
 EXPOSE 8787
 
+# compose.yaml replaces this with your own user id, so the kubeconfigs are readable.
 USER node
 CMD ["npm", "start"]

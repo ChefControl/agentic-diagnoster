@@ -179,7 +179,10 @@ down() {
   require kind
   log "deleting kind cluster '$CLUSTER'"
   kind delete cluster --name "$CLUSTER"
-  rm -rf "$ROOT/.kube"
+  # Delete the files but keep the folder: compose.yaml mounts it into the UI
+  # container, and a running container keeps seeing a deleted folder, so the
+  # next --up would write somewhere the container can't see.
+  rm -f "$ROOT"/.kube/*.kubeconfig
   ok "cluster and kubeconfigs removed"
 }
 
