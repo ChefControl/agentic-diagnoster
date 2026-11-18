@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildApp } from "../src/server/app.ts";
+import { AGENT_PROMPT, buildApp, EVAL_DATASET } from "../src/server/app.ts";
 import { loadScenarios } from "../src/server/scenarios.ts";
 import { ScenarioService } from "../src/server/service.ts";
 import { REQUEST_HEADER, REQUEST_HEADER_VALUE } from "../src/shared/types.ts";
@@ -35,7 +35,7 @@ describe("API without a cluster", () => {
 
   it("reports Phoenix as not running, with the URL to open", async () => {
     const res = await app.inject({ method: "GET", url: "/api/phoenix" });
-    expect(res.json()).toEqual({ url: "http://127.0.0.1:9", reachable: false });
+    expect(res.json()).toEqual({ url: "http://127.0.0.1:9", reachable: false, evalsUrl: null });
   });
 
   it("serves the scenario spec without touching the cluster", async () => {
@@ -83,7 +83,7 @@ describe("API refuses other sites", () => {
 
 describe("Phoenix behind two URLs", () => {
   it("checks the internal URL but returns the public one for the browser", async () => {
-    // A stand-in Phoenix that only the internal URL reaches.
+    // A stand-in Phoenix that only the internal URL reaches, with no eval dataset yet.
     const phoenix = createServer((req, res) => res.writeHead(req.url === "/healthz" ? 200 : 404).end());
     await new Promise<void>((done) => phoenix.listen(0, "127.0.0.1", done));
     const internal = `http://127.0.0.1:${(phoenix.address() as AddressInfo).port}`;
@@ -91,9 +91,43 @@ describe("Phoenix behind two URLs", () => {
       // The public URL points nowhere, so "reachable" can only come from the internal one.
       const twoUrls = buildApp({ service, phoenixUrl: "http://127.0.0.1:9", phoenixInternalUrl: internal });
       const res = await twoUrls.inject({ method: "GET", url: "/api/phoenix" });
-      expect(res.json()).toEqual({ url: "http://127.0.0.1:9", reachable: true });
+      expect(res.json()).toEqual({ url: "http://127.0.0.1:9", reachable: true, evalsUrl: null });
     } finally {
       phoenix.close();
     }
+  });
+});
+
+describe("the evals link", () => {
+  // A stand-in Phoenix that lists the given datasets and prompts.
+  async function withPhoenix(listed: { datasets: object[]; prompts: object[] }, check: (internal: string) => Promise<void>) {
+    const phoenix = createServer((req, res) => {
+      if (req.url === "/healthz") return res.writeHead(200).end();
+      const data = req.url?.startsWith("/v1/datasets") ? listed.datasets : req.url?.startsWith("/v1/prompts") ? listed.prompts : null;
+      if (!data) return res.writeHead(404).end();
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ data }));
+    });
+    await new Promise<void>((done) => phoenix.listen(0, "127.0.0.1", done));
+    try {
+      await check(`http://127.0.0.1:${(phoenix.address() as AddressInfo).port}`);
+    } finally {
+      phoenix.close();
+    }
+  }
+
+  it("opens the Playground with the agent's prompt and the eval dataset, looked up by name", async () => {
+    const datasets = [{ id: "RGF0YXNldDo5", name: "something-else" }, { id: "RGF0YXNldDox", name: EVAL_DATASET }];
+    const prompts = [{ id: "UHJvbXB0OjI=", name: "action-evaluator-1" }, { id: "UHJvbXB0OjE=", name: AGENT_PROMPT }];
+    await withPhoenix({ datasets, prompts }, async (internal) => {
+      const res = await buildApp({ service, phoenixUrl: "http://localhost:6006", phoenixInternalUrl: internal }).inject({ method: "GET", url: "/api/phoenix" });
+      expect(res.json().evalsUrl).toBe("http://localhost:6006/playground?promptId=UHJvbXB0OjE%3D&datasetId=RGF0YXNldDox");
+    });
+  });
+
+  it("gives no link until both exist", async () => {
+    await withPhoenix({ datasets: [{ id: "RGF0YXNldDox", name: EVAL_DATASET }], prompts: [] }, async (internal) => {
+      const res = await buildApp({ service, phoenixUrl: "http://localhost:6006", phoenixInternalUrl: internal }).inject({ method: "GET", url: "/api/phoenix" });
+      expect(res.json()).toEqual({ url: "http://localhost:6006", reachable: true, evalsUrl: null });
+    });
   });
 });

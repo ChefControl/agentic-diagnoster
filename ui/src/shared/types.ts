@@ -101,6 +101,8 @@ export interface ScenarioSpec {
 export interface PhoenixStatus {
   url: string | null; // null when PHOENIX_URL is not configured
   reachable: boolean;
+  // The Playground with the agent's prompt and the eval dataset chosen; null until phoenix-setup has run.
+  evalsUrl: string | null;
 }
 
 export interface ClusterHealth {

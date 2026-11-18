@@ -36,6 +36,34 @@ function hostname(host: string | undefined): string {
 
 const CHANGES = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// Both created by the agent's phoenix-setup (agent/src/diagnoster/evals/setup.py).
+export const EVAL_DATASET = "diagnoster-scenarios";
+export const AGENT_PROMPT = "diagnoster-system";
+
+// The id of a Phoenix dataset or prompt with this name, from a REST listing.
+async function findId(phoenix: string, listing: string, name: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${phoenix}${listing}`, { signal: AbortSignal.timeout(1500) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { data?: { id: string; name: string }[] };
+    return body.data?.find((d) => d.name === name)?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// The Playground with the agent's prompt (which also picks the agent as the model)
+// and the eval dataset with its evaluators. Without the prompt, the Playground
+// would open on its own "You are a chatbot" prompt, and the agent would run with that.
+async function evalsUrl(phoenixUrl: string, internal: string): Promise<string | null> {
+  const [datasetId, promptId] = await Promise.all([
+    findId(internal, `/v1/datasets?name=${encodeURIComponent(EVAL_DATASET)}`, EVAL_DATASET),
+    findId(internal, "/v1/prompts?limit=100", AGENT_PROMPT),
+  ]);
+  if (!datasetId || !promptId) return null;
+  return `${phoenixUrl}/playground?promptId=${encodeURIComponent(promptId)}&datasetId=${encodeURIComponent(datasetId)}`;
+}
+
 export function buildApp({ service, phoenixUrl, phoenixInternalUrl, webDir, logger = false }: Options): FastifyInstance {
   const app = Fastify({ logger });
 
@@ -68,12 +96,13 @@ export function buildApp({ service, phoenixUrl, phoenixInternalUrl, webDir, logg
 
   // Phoenix holds the traces and eval experiments; the UI links to it.
   app.get("/api/phoenix", async (): Promise<PhoenixStatus> => {
-    if (!phoenixUrl) return { url: null, reachable: false };
-    const reachable = await fetch(`${phoenixInternalUrl ?? phoenixUrl}/healthz`, { signal: AbortSignal.timeout(1500) }).then(
+    if (!phoenixUrl) return { url: null, reachable: false, evalsUrl: null };
+    const internal = phoenixInternalUrl ?? phoenixUrl;
+    const reachable = await fetch(`${internal}/healthz`, { signal: AbortSignal.timeout(1500) }).then(
       (r) => r.ok,
       () => false,
     );
-    return { url: phoenixUrl, reachable };
+    return { url: phoenixUrl, reachable, evalsUrl: reachable ? await evalsUrl(phoenixUrl, internal) : null };
   });
 
   app.get("/api/scenarios", () => service.summaries());

@@ -138,7 +138,7 @@ export function App() {
             <AgentChat key={route.question} question={route.question} examples={scenarios.map((s) => s.question)} />
           ) : route.page === "scenarios" ? (
             list.data ? (
-              <OverviewView scenarios={scenarios} onChanged={list.refresh} />
+              <OverviewView scenarios={scenarios} phoenix={phoenix.data} onChanged={list.refresh} />
             ) : (
               <p className="muted">{list.error ?? "Loading scenarios…"}</p>
             )
@@ -234,7 +234,15 @@ function ScenarioActions({
 // ---------------------------------------------------------------- overview
 
 // Every scenario on one screen: what is broken, and whether it is ready to investigate.
-function OverviewView({ scenarios, onChanged }: { scenarios: ScenarioSummary[]; onChanged: () => void }) {
+function OverviewView({
+  scenarios,
+  phoenix,
+  onChanged,
+}: {
+  scenarios: ScenarioSummary[];
+  phoenix?: PhoenixStatus;
+  onChanged: () => void;
+}) {
   return (
     <div className="overview">
       <h1 className="page-title">Scenarios</h1>
@@ -276,7 +284,39 @@ function OverviewView({ scenarios, onChanged }: { scenarios: ScenarioSummary[]; 
           ))}
         </tbody>
       </table>
+      <EvalsSection phoenix={phoenix} />
     </div>
+  );
+}
+
+// Evals run inside Phoenix: its Playground sends every dataset question to the
+// agent and scores each answer with the three evaluators.
+function EvalsSection({ phoenix }: { phoenix?: PhoenixStatus }) {
+  return (
+    <section className="evals" aria-labelledby="evals-title">
+      <h2 className="section-title" id="evals-title">
+        Evals
+      </h2>
+      {phoenix?.evalsUrl ? (
+        <>
+          <p className="page-note">
+            Opens Phoenix's Playground with the agent's prompt and the eval dataset. Press Run there. The model is{" "}
+            <code>diagnoster-recorded</code>, which answers from a saved copy of the cluster; switch to{" "}
+            <code>diagnoster-live</code> to use the real one, with all four scenarios deployed.
+          </p>
+          <a className="btn btn-quiet evals-link" href={phoenix.evalsUrl} target="_blank" rel="noreferrer">
+            Run evals in Phoenix
+            <ArrowUpRight size={16} strokeWidth={1.5} aria-label="opens Phoenix" />
+          </a>
+        </>
+      ) : phoenix?.reachable ? (
+        <p className="page-note">
+          Phoenix has no evals yet. Set them up with <code>docker compose up phoenix-setup</code>.
+        </p>
+      ) : (
+        <p className="page-note">Start Phoenix to run evals.</p>
+      )}
+    </section>
   );
 }
 
