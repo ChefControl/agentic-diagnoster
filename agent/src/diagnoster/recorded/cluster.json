@@ -1,0 +1,4155 @@
+{
+ "namespaces": {
+  "catalog": {
+   "configmaps": [
+    {
+     "data": {
+      "ca.crt": "-----BEGIN CERTIFICATE-----\nMIIDBTCCAe2gAwIBAgIIMRROuEIwI/EwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE\nAxMKa3ViZXJuZXRlczAeFw0yNjExMTcxOTEyMTZaFw0zNjExMTQxOTE3MTZaMBUx\nEzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK\nAoIBAQDC1aPRB5MLsDrwQx2E5rjFYRqZA7/Mo52o6SEDOhUBjQk7Z4ghLg8nJzXX\neB1r8aRBvdOK7yP1Lt05SCYAjVs9BLnaUe7eGpGHL55pgli6UyB8zu4nMnpLEQOS\nejleQWOfjxSmNowdsIK9rhbDWXSlBlEbO2YyP93EiAMEGRSzWTzwaz8V/q7jwb6p\nuptmyTUGZSurF6ccsK/moQqid1jQUT5i3vH/nspKiWjWH8TVrXAPN77Cng32unbt\nBSK2d1vyhK5NQNNE4AWTlaxVreNVL/EL5k/TqjC63T8da8A0Ew9gspTD5nG9kftu\n6tK9njUzSA92HRFH9btofq0hSVflAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP\nBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSaCwc7IeM6tmIcYwzrlcoSAG11BjAV\nBgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQBmvUUAezIA\nbXIIStBzHgicX6U2twos5CvdJz+BCXNBdejaoEvvv0xtWPH3CdDvzYHLXxEFfh57\nQOyx4V+hr3S1gbEWrDTQnLOsqhhdkwJcEQvg8WcybIvG7yrjZG42WkZTrDovyOBq\nCHA/JEm7QpNyDOFe3V9cwKt+jPrd04xIKzhtnC9cEHYJi2NlaBqVFtIRennaoS56\nz8Cc16nk+klnU7AFq1PngdYo6RjCD1B0kGfPxejjG2BL3Qbsu21a4webbuwehnEN\nusiN7kjx2nO5M4bCrBeFraUHlTNNbLJ8VXFAl9o3q71iSWWUknRDQAkGIgpCsrLS\nLGbujX62Kjpg\n-----END CERTIFICATE-----\n"
+     },
+     "metadata": {
+      "annotations": {
+       "kubernetes.io/description": "Contains a CA bundle that can be used to verify the kube-apiserver when using internal endpoints such as the internal service IP or kubernetes.default.svc. No other usage is guaranteed across distributions of Kubernetes clusters."
+      },
+      "creationTimestamp": "2026-11-17T19:17:40Z",
+      "name": "kube-root-ca.crt",
+      "namespace": "catalog",
+      "resourceVersion": "528",
+      "uid": "e2fefec5-39fd-41d8-9865-1ead50ddc5cd"
+     }
+    }
+   ],
+   "deployments": [
+    {
+     "metadata": {
+      "annotations": {
+       "deployment.kubernetes.io/revision": "1"
+      },
+      "creationTimestamp": "2026-11-18T16:03:06Z",
+      "generation": 1,
+      "name": "catalog",
+      "namespace": "catalog",
+      "resourceVersion": "47325",
+      "uid": "24885d2c-12d2-4439-bcd2-4118289b4ad0"
+     },
+     "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 2,
+      "revisionHistoryLimit": 10,
+      "selector": {
+       "matchLabels": {
+        "app": "catalog"
+       }
+      },
+      "strategy": {
+       "rollingUpdate": {
+        "maxSurge": "25%",
+        "maxUnavailable": "25%"
+       },
+       "type": "RollingUpdate"
+      },
+      "template": {
+       "metadata": {
+        "labels": {
+         "app": "catalog",
+         "tier": "backend"
+        }
+       },
+       "spec": {
+        "containers": [
+         {
+          "image": "nginx:1.27-alpine",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "api",
+          "ports": [
+           {
+            "containerPort": 80,
+            "protocol": "TCP"
+           }
+          ],
+          "readinessProbe": {
+           "failureThreshold": 3,
+           "httpGet": {
+            "path": "/",
+            "port": 80,
+            "scheme": "HTTP"
+           },
+           "periodSeconds": 10,
+           "successThreshold": 1,
+           "timeoutSeconds": 1
+          },
+          "resources": {
+           "limits": {
+            "memory": "64Mi"
+           },
+           "requests": {
+            "cpu": "10m",
+            "memory": "16Mi"
+           }
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File"
+         }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "terminationGracePeriodSeconds": 30
+       }
+      }
+     },
+     "status": {
+      "availableReplicas": 2,
+      "conditions": [
+       {
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "lastUpdateTime": "2026-11-18T16:03:06Z",
+        "message": "Deployment has minimum availability.",
+        "reason": "MinimumReplicasAvailable",
+        "status": "True",
+        "type": "Available"
+       },
+       {
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "lastUpdateTime": "2026-11-18T16:03:06Z",
+        "message": "ReplicaSet \"catalog-78878ddf99\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+       }
+      ],
+      "observedGeneration": 1,
+      "readyReplicas": 2,
+      "replicas": 2,
+      "terminatingReplicas": 0,
+      "updatedReplicas": 2
+     }
+    },
+    {
+     "metadata": {
+      "annotations": {
+       "deployment.kubernetes.io/revision": "1"
+      },
+      "creationTimestamp": "2026-11-18T16:03:06Z",
+      "generation": 1,
+      "name": "storefront",
+      "namespace": "catalog",
+      "resourceVersion": "47319",
+      "uid": "3680cb19-d9d3-4ba9-9a40-aabcbb21cb20"
+     },
+     "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+       "matchLabels": {
+        "app": "storefront"
+       }
+      },
+      "strategy": {
+       "rollingUpdate": {
+        "maxSurge": "25%",
+        "maxUnavailable": "25%"
+       },
+       "type": "RollingUpdate"
+      },
+      "template": {
+       "metadata": {
+        "labels": {
+         "app": "storefront",
+         "tier": "frontend"
+        }
+       },
+       "spec": {
+        "containers": [
+         {
+          "args": [
+           "echo \"storefront starting, upstream: http://catalog.catalog.svc.cluster.local\"\nwhile true; do\n  if wget -q -T 3 -O /dev/null http://catalog.catalog.svc.cluster.local/; then\n    echo \"$(date -u +%FT%TZ) GET http://catalog/ -> 200\"\n  else\n    echo \"$(date -u +%FT%TZ) ERROR: GET http://catalog/ failed: upstream unreachable\"\n  fi\n  sleep 5\ndone\n"
+          ],
+          "command": [
+           "sh",
+           "-c"
+          ],
+          "image": "busybox:1.36",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "web",
+          "resources": {
+           "limits": {
+            "memory": "32Mi"
+           },
+           "requests": {
+            "cpu": "10m",
+            "memory": "16Mi"
+           }
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File"
+         }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "terminationGracePeriodSeconds": 30
+       }
+      }
+     },
+     "status": {
+      "availableReplicas": 1,
+      "conditions": [
+       {
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "lastUpdateTime": "2026-11-18T16:03:06Z",
+        "message": "Deployment has minimum availability.",
+        "reason": "MinimumReplicasAvailable",
+        "status": "True",
+        "type": "Available"
+       },
+       {
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "lastUpdateTime": "2026-11-18T16:03:06Z",
+        "message": "ReplicaSet \"storefront-785b87fd5b\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+       }
+      ],
+      "observedGeneration": 1,
+      "readyReplicas": 1,
+      "replicas": 1,
+      "terminatingReplicas": 0,
+      "updatedReplicas": 1
+     }
+    }
+   ],
+   "endpointslices": [
+    {
+     "addressType": "IPv4",
+     "endpoints": null,
+     "metadata": {
+      "annotations": {
+       "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-18T16:03:06Z"
+      },
+      "creationTimestamp": "2026-11-18T16:03:06Z",
+      "generateName": "catalog-",
+      "generation": 1,
+      "labels": {
+       "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+       "kubernetes.io/service-name": "catalog"
+      },
+      "name": "catalog-l9sgt",
+      "namespace": "catalog",
+      "ownerReferences": [
+       {
+        "apiVersion": "v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Service",
+        "name": "catalog",
+        "uid": "6fdcb055-66f9-4942-8dd0-16a5841cc094"
+       }
+      ],
+      "resourceVersion": "47285",
+      "uid": "5f953886-aac7-44b0-bc98-a2e39d4af261"
+     },
+     "ports": null
+    }
+   ],
+   "events": [],
+   "logs": {
+    "catalog-78878ddf99-9trzz/api": {
+     "current": "10.244.0.1 - - [18/Nov/2026:22:17:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:17:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:17:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n",
+     "previous": null
+    },
+    "catalog-78878ddf99-l987h/api": {
+     "current": "10.244.0.1 - - [18/Nov/2026:22:17:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:17:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:17:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n",
+     "previous": null
+    },
+    "storefront-785b87fd5b-8qzpn/web": {
+     "current": "wget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:23:24Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:23:30Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:23:36Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:23:42Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:23:48Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:23:54Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:00Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:06Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:12Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:18Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:24Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:30Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:36Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:42Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:48Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:24:54Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:00Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:06Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:12Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:18Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:24Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:30Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:36Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:42Z ERROR: GET http://catalog/ failed: upstream unreachable\nwget: can't connect to remote host (10.96.18.221): Connection refused\n2026-11-18T22:25:48Z ERROR: GET http://catalog/ failed: upstream unreachable\n",
+     "previous": null
+    }
+   },
+   "pods": [
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T16:03:06Z",
+      "generateName": "catalog-78878ddf99-",
+      "generation": 1,
+      "labels": {
+       "app": "catalog",
+       "pod-template-hash": "78878ddf99",
+       "tier": "backend"
+      },
+      "name": "catalog-78878ddf99-9trzz",
+      "namespace": "catalog",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "catalog-78878ddf99",
+        "uid": "017b1106-de28-47ea-8602-a9825dc8186f"
+       }
+      ],
+      "resourceVersion": "47327",
+      "uid": "a65c2bce-1ddf-4056-85a5-afe84204db13"
+     },
+     "spec": {
+      "containers": [
+       {
+        "image": "nginx:1.27-alpine",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "api",
+        "ports": [
+         {
+          "containerPort": 80,
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "failureThreshold": 3,
+         "httpGet": {
+          "path": "/",
+          "port": 80,
+          "scheme": "HTTP"
+         },
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-bct9w",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "name": "kube-api-access-bct9w",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://9510fd71412b9076d059c21c7838894959927825da0ec5b7fa1954680d69779c",
+        "image": "docker.io/library/nginx:1.27-alpine",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:03b60c30be0e9a209018f89690a5790cb5670fa5591ca528ca3e514222c846a5",
+        "lastState": {},
+        "name": "api",
+        "ready": true,
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T16:03:06Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           1,
+           2,
+           3,
+           4,
+           6,
+           10,
+           11,
+           20,
+           26,
+           27
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-bct9w",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.21",
+      "podIPs": [
+       {
+        "ip": "10.244.0.21"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "64Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T16:03:06Z"
+     }
+    },
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T16:03:06Z",
+      "generateName": "catalog-78878ddf99-",
+      "generation": 1,
+      "labels": {
+       "app": "catalog",
+       "pod-template-hash": "78878ddf99",
+       "tier": "backend"
+      },
+      "name": "catalog-78878ddf99-l987h",
+      "namespace": "catalog",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "catalog-78878ddf99",
+        "uid": "017b1106-de28-47ea-8602-a9825dc8186f"
+       }
+      ],
+      "resourceVersion": "47326",
+      "uid": "c49046e1-223b-4ccd-b9f0-6f7628550d07"
+     },
+     "spec": {
+      "containers": [
+       {
+        "image": "nginx:1.27-alpine",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "api",
+        "ports": [
+         {
+          "containerPort": 80,
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "failureThreshold": 3,
+         "httpGet": {
+          "path": "/",
+          "port": 80,
+          "scheme": "HTTP"
+         },
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-wns72",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "name": "kube-api-access-wns72",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://68f63804b71657c7e90ded5848deaa6ac10eed74a46615d28803a9556b3284de",
+        "image": "docker.io/library/nginx:1.27-alpine",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:03b60c30be0e9a209018f89690a5790cb5670fa5591ca528ca3e514222c846a5",
+        "lastState": {},
+        "name": "api",
+        "ready": true,
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T16:03:06Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           1,
+           2,
+           3,
+           4,
+           6,
+           10,
+           11,
+           20,
+           26,
+           27
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-wns72",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.20",
+      "podIPs": [
+       {
+        "ip": "10.244.0.20"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "64Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T16:03:06Z"
+     }
+    },
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T16:03:06Z",
+      "generateName": "storefront-785b87fd5b-",
+      "generation": 1,
+      "labels": {
+       "app": "storefront",
+       "pod-template-hash": "785b87fd5b",
+       "tier": "frontend"
+      },
+      "name": "storefront-785b87fd5b-8qzpn",
+      "namespace": "catalog",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "storefront-785b87fd5b",
+        "uid": "54e02522-aaae-4fc9-883b-06174d1d6b0e"
+       }
+      ],
+      "resourceVersion": "47428",
+      "uid": "33e540ba-bd1c-4fd2-8933-19558300dd63"
+     },
+     "spec": {
+      "containers": [
+       {
+        "args": [
+         "echo \"storefront starting, upstream: http://catalog.catalog.svc.cluster.local\"\nwhile true; do\n  if wget -q -T 3 -O /dev/null http://catalog.catalog.svc.cluster.local/; then\n    echo \"$(date -u +%FT%TZ) GET http://catalog/ -> 200\"\n  else\n    echo \"$(date -u +%FT%TZ) ERROR: GET http://catalog/ failed: upstream unreachable\"\n  fi\n  sleep 5\ndone\n"
+        ],
+        "command": [
+         "sh",
+         "-c"
+        ],
+        "image": "busybox:1.36",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "web",
+        "resources": {
+         "limits": {
+          "memory": "32Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-5qh4m",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "name": "kube-api-access-5qh4m",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T16:03:06Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://c6b6117a29c4aa1512754c8c793bfafd5243632fc3b4ba5af170ca80253ee357",
+        "image": "docker.io/library/busybox:1.36",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:9a3e3915c2c1522e6b53b95a78931b7e543d34a22527964c05ba45368ac70e97",
+        "lastState": {},
+        "name": "web",
+        "ready": true,
+        "resources": {
+         "limits": {
+          "memory": "32Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T16:03:06Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           10
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-5qh4m",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.22",
+      "podIPs": [
+       {
+        "ip": "10.244.0.22"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "32Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T16:03:06Z"
+     }
+    }
+   ],
+   "services": [
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T16:03:06Z",
+      "name": "catalog",
+      "namespace": "catalog",
+      "resourceVersion": "47283",
+      "uid": "6fdcb055-66f9-4942-8dd0-16a5841cc094"
+     },
+     "spec": {
+      "clusterIP": "10.96.18.221",
+      "clusterIPs": [
+       "10.96.18.221"
+      ],
+      "internalTrafficPolicy": "Cluster",
+      "ipFamilies": [
+       "IPv4"
+      ],
+      "ipFamilyPolicy": "SingleStack",
+      "ports": [
+       {
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": 80
+       }
+      ],
+      "selector": {
+       "app": "catalog-api"
+      },
+      "sessionAffinity": "None",
+      "type": "ClusterIP"
+     },
+     "status": {
+      "loadBalancer": {}
+     }
+    }
+   ]
+  },
+  "inventory": {
+   "configmaps": [
+    {
+     "data": {
+      "ca.crt": "-----BEGIN CERTIFICATE-----\nMIIDBTCCAe2gAwIBAgIIMRROuEIwI/EwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE\nAxMKa3ViZXJuZXRlczAeFw0yNjExMTcxOTEyMTZaFw0zNjExMTQxOTE3MTZaMBUx\nEzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK\nAoIBAQDC1aPRB5MLsDrwQx2E5rjFYRqZA7/Mo52o6SEDOhUBjQk7Z4ghLg8nJzXX\neB1r8aRBvdOK7yP1Lt05SCYAjVs9BLnaUe7eGpGHL55pgli6UyB8zu4nMnpLEQOS\nejleQWOfjxSmNowdsIK9rhbDWXSlBlEbO2YyP93EiAMEGRSzWTzwaz8V/q7jwb6p\nuptmyTUGZSurF6ccsK/moQqid1jQUT5i3vH/nspKiWjWH8TVrXAPN77Cng32unbt\nBSK2d1vyhK5NQNNE4AWTlaxVreNVL/EL5k/TqjC63T8da8A0Ew9gspTD5nG9kftu\n6tK9njUzSA92HRFH9btofq0hSVflAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP\nBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSaCwc7IeM6tmIcYwzrlcoSAG11BjAV\nBgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQBmvUUAezIA\nbXIIStBzHgicX6U2twos5CvdJz+BCXNBdejaoEvvv0xtWPH3CdDvzYHLXxEFfh57\nQOyx4V+hr3S1gbEWrDTQnLOsqhhdkwJcEQvg8WcybIvG7yrjZG42WkZTrDovyOBq\nCHA/JEm7QpNyDOFe3V9cwKt+jPrd04xIKzhtnC9cEHYJi2NlaBqVFtIRennaoS56\nz8Cc16nk+klnU7AFq1PngdYo6RjCD1B0kGfPxejjG2BL3Qbsu21a4webbuwehnEN\nusiN7kjx2nO5M4bCrBeFraUHlTNNbLJ8VXFAl9o3q71iSWWUknRDQAkGIgpCsrLS\nLGbujX62Kjpg\n-----END CERTIFICATE-----\n"
+     },
+     "metadata": {
+      "annotations": {
+       "kubernetes.io/description": "Contains a CA bundle that can be used to verify the kube-apiserver when using internal endpoints such as the internal service IP or kubernetes.default.svc. No other usage is guaranteed across distributions of Kubernetes clusters."
+      },
+      "creationTimestamp": "2026-11-17T19:17:40Z",
+      "name": "kube-root-ca.crt",
+      "namespace": "inventory",
+      "resourceVersion": "530",
+      "uid": "7b0b60da-56b2-4da3-adbd-5c6a108688c2"
+     }
+    }
+   ],
+   "deployments": [
+    {
+     "metadata": {
+      "annotations": {
+       "deployment.kubernetes.io/revision": "1"
+      },
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generation": 1,
+      "name": "inventory",
+      "namespace": "inventory",
+      "resourceVersion": "74396",
+      "uid": "078467db-b7d7-44f1-84d2-55f32a13363d"
+     },
+     "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 2,
+      "revisionHistoryLimit": 10,
+      "selector": {
+       "matchLabels": {
+        "app": "inventory"
+       }
+      },
+      "strategy": {
+       "rollingUpdate": {
+        "maxSurge": "25%",
+        "maxUnavailable": "25%"
+       },
+       "type": "RollingUpdate"
+      },
+      "template": {
+       "metadata": {
+        "labels": {
+         "app": "inventory"
+        }
+       },
+       "spec": {
+        "containers": [
+         {
+          "image": "nginx:1.27-alpine",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "api",
+          "ports": [
+           {
+            "containerPort": 80,
+            "protocol": "TCP"
+           }
+          ],
+          "readinessProbe": {
+           "failureThreshold": 3,
+           "httpGet": {
+            "path": "/",
+            "port": 80,
+            "scheme": "HTTP"
+           },
+           "periodSeconds": 10,
+           "successThreshold": 1,
+           "timeoutSeconds": 1
+          },
+          "resources": {
+           "limits": {
+            "memory": "64Mi"
+           },
+           "requests": {
+            "cpu": "10m",
+            "memory": "16Mi"
+           }
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File"
+         }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "terminationGracePeriodSeconds": 30
+       }
+      }
+     },
+     "status": {
+      "availableReplicas": 2,
+      "conditions": [
+       {
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "lastUpdateTime": "2026-11-18T21:06:03Z",
+        "message": "Deployment has minimum availability.",
+        "reason": "MinimumReplicasAvailable",
+        "status": "True",
+        "type": "Available"
+       },
+       {
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "lastUpdateTime": "2026-11-18T21:06:03Z",
+        "message": "ReplicaSet \"inventory-6f4b7f54d4\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+       }
+      ],
+      "observedGeneration": 1,
+      "readyReplicas": 2,
+      "replicas": 2,
+      "terminatingReplicas": 0,
+      "updatedReplicas": 2
+     }
+    },
+    {
+     "metadata": {
+      "annotations": {
+       "deployment.kubernetes.io/revision": "1"
+      },
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generation": 1,
+      "name": "inventory-sync",
+      "namespace": "inventory",
+      "resourceVersion": "74367",
+      "uid": "aed7b7a8-a513-442d-87c7-fd3b68154a06"
+     },
+     "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+       "matchLabels": {
+        "app": "inventory-sync"
+       }
+      },
+      "strategy": {
+       "rollingUpdate": {
+        "maxSurge": "25%",
+        "maxUnavailable": "25%"
+       },
+       "type": "RollingUpdate"
+      },
+      "template": {
+       "metadata": {
+        "labels": {
+         "app": "inventory-sync"
+        }
+       },
+       "spec": {
+        "containers": [
+         {
+          "args": [
+           "echo \"inventory-sync starting, upstream: http://inventory.inventory.svc.cluster.local\"\nwhile true; do\n  if wget -q -T 3 -O /dev/null http://inventory.inventory.svc.cluster.local/; then\n    echo \"$(date -u +%FT%TZ) sync ok\"\n  else\n    echo \"$(date -u +%FT%TZ) ERROR: sync failed: upstream unreachable\"\n  fi\n  sleep 5\ndone\n"
+          ],
+          "command": [
+           "sh",
+           "-c"
+          ],
+          "image": "busybox:1.36",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "sync",
+          "resources": {
+           "limits": {
+            "memory": "32Mi"
+           },
+           "requests": {
+            "cpu": "10m",
+            "memory": "16Mi"
+           }
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File"
+         }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "terminationGracePeriodSeconds": 30
+       }
+      }
+     },
+     "status": {
+      "availableReplicas": 1,
+      "conditions": [
+       {
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "lastUpdateTime": "2026-11-18T21:06:03Z",
+        "message": "Deployment has minimum availability.",
+        "reason": "MinimumReplicasAvailable",
+        "status": "True",
+        "type": "Available"
+       },
+       {
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "lastUpdateTime": "2026-11-18T21:06:03Z",
+        "message": "ReplicaSet \"inventory-sync-b98f5d546\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+       }
+      ],
+      "observedGeneration": 1,
+      "readyReplicas": 1,
+      "replicas": 1,
+      "terminatingReplicas": 0,
+      "updatedReplicas": 1
+     }
+    }
+   ],
+   "endpointslices": [
+    {
+     "addressType": "IPv4",
+     "endpoints": [
+      {
+       "addresses": [
+        "10.244.0.54"
+       ],
+       "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+       },
+       "nodeName": "diagnoster-control-plane",
+       "targetRef": {
+        "kind": "Pod",
+        "name": "inventory-6f4b7f54d4-n8hd6",
+        "namespace": "inventory",
+        "uid": "d815ca7b-91c0-4c26-86d3-bb92db215c91"
+       }
+      },
+      {
+       "addresses": [
+        "10.244.0.55"
+       ],
+       "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+       },
+       "nodeName": "diagnoster-control-plane",
+       "targetRef": {
+        "kind": "Pod",
+        "name": "inventory-6f4b7f54d4-r9zx7",
+        "namespace": "inventory",
+        "uid": "14d9e3f7-fe69-4119-89df-ec5c2b367d26"
+       }
+      }
+     ],
+     "metadata": {
+      "annotations": {
+       "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-18T21:06:03Z"
+      },
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generateName": "inventory-",
+      "generation": 5,
+      "labels": {
+       "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+       "kubernetes.io/service-name": "inventory"
+      },
+      "name": "inventory-bg4wf",
+      "namespace": "inventory",
+      "ownerReferences": [
+       {
+        "apiVersion": "v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Service",
+        "name": "inventory",
+        "uid": "70778bdd-a360-49a2-b20d-ff2f87acf387"
+       }
+      ],
+      "resourceVersion": "74394",
+      "uid": "6d80b9e6-f845-41d9-898d-2ef331c694a7"
+     },
+     "ports": [
+      {
+       "name": "",
+       "port": 80,
+       "protocol": "TCP"
+      }
+     ]
+    }
+   ],
+   "events": [],
+   "logs": {
+    "inventory-6f4b7f54d4-n8hd6/api": {
+     "current": "10.244.0.1 - - [18/Nov/2026:22:21:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:21:36 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:21:41 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:01 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:16 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:26 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:31 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:41 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:51 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:56 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:01 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:31 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:36 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:41 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:46 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:56 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:06 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:26 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:31 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:41 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:12 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:17 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:42 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:47 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n",
+     "previous": null
+    },
+    "inventory-6f4b7f54d4-r9zx7/api": {
+     "current": "10.244.0.56 - - [18/Nov/2026:22:21:51 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:21:56 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:06 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:11 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:21 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:36 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:22:46 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:06 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:11 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:16 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:21 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:26 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:23:51 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:01 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:11 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:16 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:21 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:36 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:52 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:24:57 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:02 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:07 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:22 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:27 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:32 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.56 - - [18/Nov/2026:22:25:37 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"Wget\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n",
+     "previous": null
+    },
+    "inventory-sync-b98f5d546-bxcx2/sync": {
+     "current": "2026-11-18T22:21:41Z sync ok\n2026-11-18T22:21:46Z sync ok\n2026-11-18T22:21:51Z sync ok\n2026-11-18T22:21:56Z sync ok\n2026-11-18T22:22:01Z sync ok\n2026-11-18T22:22:06Z sync ok\n2026-11-18T22:22:11Z sync ok\n2026-11-18T22:22:16Z sync ok\n2026-11-18T22:22:21Z sync ok\n2026-11-18T22:22:26Z sync ok\n2026-11-18T22:22:31Z sync ok\n2026-11-18T22:22:36Z sync ok\n2026-11-18T22:22:41Z sync ok\n2026-11-18T22:22:46Z sync ok\n2026-11-18T22:22:51Z sync ok\n2026-11-18T22:22:56Z sync ok\n2026-11-18T22:23:01Z sync ok\n2026-11-18T22:23:06Z sync ok\n2026-11-18T22:23:11Z sync ok\n2026-11-18T22:23:16Z sync ok\n2026-11-18T22:23:21Z sync ok\n2026-11-18T22:23:26Z sync ok\n2026-11-18T22:23:31Z sync ok\n2026-11-18T22:23:36Z sync ok\n2026-11-18T22:23:41Z sync ok\n2026-11-18T22:23:46Z sync ok\n2026-11-18T22:23:51Z sync ok\n2026-11-18T22:23:56Z sync ok\n2026-11-18T22:24:01Z sync ok\n2026-11-18T22:24:06Z sync ok\n2026-11-18T22:24:11Z sync ok\n2026-11-18T22:24:16Z sync ok\n2026-11-18T22:24:21Z sync ok\n2026-11-18T22:24:26Z sync ok\n2026-11-18T22:24:31Z sync ok\n2026-11-18T22:24:36Z sync ok\n2026-11-18T22:24:42Z sync ok\n2026-11-18T22:24:47Z sync ok\n2026-11-18T22:24:52Z sync ok\n2026-11-18T22:24:57Z sync ok\n2026-11-18T22:25:02Z sync ok\n2026-11-18T22:25:07Z sync ok\n2026-11-18T22:25:12Z sync ok\n2026-11-18T22:25:17Z sync ok\n2026-11-18T22:25:22Z sync ok\n2026-11-18T22:25:27Z sync ok\n2026-11-18T22:25:32Z sync ok\n2026-11-18T22:25:37Z sync ok\n2026-11-18T22:25:42Z sync ok\n2026-11-18T22:25:47Z sync ok\n",
+     "previous": null
+    }
+   },
+   "pods": [
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generateName": "inventory-6f4b7f54d4-",
+      "generation": 1,
+      "labels": {
+       "app": "inventory",
+       "pod-template-hash": "6f4b7f54d4"
+      },
+      "name": "inventory-6f4b7f54d4-n8hd6",
+      "namespace": "inventory",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "inventory-6f4b7f54d4",
+        "uid": "221ba8f5-04e0-4ebe-8b35-dc8b39cb5fb2"
+       }
+      ],
+      "resourceVersion": "74412",
+      "uid": "d815ca7b-91c0-4c26-86d3-bb92db215c91"
+     },
+     "spec": {
+      "containers": [
+       {
+        "image": "nginx:1.27-alpine",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "api",
+        "ports": [
+         {
+          "containerPort": 80,
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "failureThreshold": 3,
+         "httpGet": {
+          "path": "/",
+          "port": 80,
+          "scheme": "HTTP"
+         },
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-cx8kt",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "name": "kube-api-access-cx8kt",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://6c252802c1e9c7ce649c33dfdb6a79f1f70c239aafd49a2678ed723272ca95c6",
+        "image": "docker.io/library/nginx:1.27-alpine",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:03b60c30be0e9a209018f89690a5790cb5670fa5591ca528ca3e514222c846a5",
+        "lastState": {},
+        "name": "api",
+        "ready": true,
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T21:06:03Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           1,
+           2,
+           3,
+           4,
+           6,
+           10,
+           11,
+           20,
+           26,
+           27
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-cx8kt",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.54",
+      "podIPs": [
+       {
+        "ip": "10.244.0.54"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "64Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T21:06:02Z"
+     }
+    },
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generateName": "inventory-6f4b7f54d4-",
+      "generation": 1,
+      "labels": {
+       "app": "inventory",
+       "pod-template-hash": "6f4b7f54d4"
+      },
+      "name": "inventory-6f4b7f54d4-r9zx7",
+      "namespace": "inventory",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "inventory-6f4b7f54d4",
+        "uid": "221ba8f5-04e0-4ebe-8b35-dc8b39cb5fb2"
+       }
+      ],
+      "resourceVersion": "74413",
+      "uid": "14d9e3f7-fe69-4119-89df-ec5c2b367d26"
+     },
+     "spec": {
+      "containers": [
+       {
+        "image": "nginx:1.27-alpine",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "api",
+        "ports": [
+         {
+          "containerPort": 80,
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "failureThreshold": 3,
+         "httpGet": {
+          "path": "/",
+          "port": 80,
+          "scheme": "HTTP"
+         },
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-5rk55",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "name": "kube-api-access-5rk55",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://a3dc7c8661ccd481dcffa4f4e587954b6ea2219262c6f05785f0a62039f67004",
+        "image": "docker.io/library/nginx:1.27-alpine",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:03b60c30be0e9a209018f89690a5790cb5670fa5591ca528ca3e514222c846a5",
+        "lastState": {},
+        "name": "api",
+        "ready": true,
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T21:06:03Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           1,
+           2,
+           3,
+           4,
+           6,
+           10,
+           11,
+           20,
+           26,
+           27
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-5rk55",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.55",
+      "podIPs": [
+       {
+        "ip": "10.244.0.55"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "64Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T21:06:02Z"
+     }
+    },
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generateName": "inventory-sync-b98f5d546-",
+      "generation": 1,
+      "labels": {
+       "app": "inventory-sync",
+       "pod-template-hash": "b98f5d546"
+      },
+      "name": "inventory-sync-b98f5d546-bxcx2",
+      "namespace": "inventory",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "inventory-sync-b98f5d546",
+        "uid": "17b7bfdf-99bd-45de-917c-85c2bcbdee1d"
+       }
+      ],
+      "resourceVersion": "74555",
+      "uid": "4aded617-d4ca-4e89-bb44-ce6f27bf0746"
+     },
+     "spec": {
+      "containers": [
+       {
+        "args": [
+         "echo \"inventory-sync starting, upstream: http://inventory.inventory.svc.cluster.local\"\nwhile true; do\n  if wget -q -T 3 -O /dev/null http://inventory.inventory.svc.cluster.local/; then\n    echo \"$(date -u +%FT%TZ) sync ok\"\n  else\n    echo \"$(date -u +%FT%TZ) ERROR: sync failed: upstream unreachable\"\n  fi\n  sleep 5\ndone\n"
+        ],
+        "command": [
+         "sh",
+         "-c"
+        ],
+        "image": "busybox:1.36",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "sync",
+        "resources": {
+         "limits": {
+          "memory": "32Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-2t25n",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "name": "kube-api-access-2t25n",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://af2ba2192e648b5028a8755da30eba4254678eac605aaccbdd799f5880f93de4",
+        "image": "docker.io/library/busybox:1.36",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:9a3e3915c2c1522e6b53b95a78931b7e543d34a22527964c05ba45368ac70e97",
+        "lastState": {},
+        "name": "sync",
+        "ready": true,
+        "resources": {
+         "limits": {
+          "memory": "32Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T21:06:03Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           10
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-2t25n",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.56",
+      "podIPs": [
+       {
+        "ip": "10.244.0.56"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "32Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T21:06:02Z"
+     }
+    }
+   ],
+   "services": [
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "name": "inventory",
+      "namespace": "inventory",
+      "resourceVersion": "74274",
+      "uid": "70778bdd-a360-49a2-b20d-ff2f87acf387"
+     },
+     "spec": {
+      "clusterIP": "10.96.15.72",
+      "clusterIPs": [
+       "10.96.15.72"
+      ],
+      "internalTrafficPolicy": "Cluster",
+      "ipFamilies": [
+       "IPv4"
+      ],
+      "ipFamilyPolicy": "SingleStack",
+      "ports": [
+       {
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": 80
+       }
+      ],
+      "selector": {
+       "app": "inventory"
+      },
+      "sessionAffinity": "None",
+      "type": "ClusterIP"
+     },
+     "status": {
+      "loadBalancer": {}
+     }
+    }
+   ]
+  },
+  "payments": {
+   "configmaps": [
+    {
+     "data": {
+      "ca.crt": "-----BEGIN CERTIFICATE-----\nMIIDBTCCAe2gAwIBAgIIMRROuEIwI/EwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE\nAxMKa3ViZXJuZXRlczAeFw0yNjExMTcxOTEyMTZaFw0zNjExMTQxOTE3MTZaMBUx\nEzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK\nAoIBAQDC1aPRB5MLsDrwQx2E5rjFYRqZA7/Mo52o6SEDOhUBjQk7Z4ghLg8nJzXX\neB1r8aRBvdOK7yP1Lt05SCYAjVs9BLnaUe7eGpGHL55pgli6UyB8zu4nMnpLEQOS\nejleQWOfjxSmNowdsIK9rhbDWXSlBlEbO2YyP93EiAMEGRSzWTzwaz8V/q7jwb6p\nuptmyTUGZSurF6ccsK/moQqid1jQUT5i3vH/nspKiWjWH8TVrXAPN77Cng32unbt\nBSK2d1vyhK5NQNNE4AWTlaxVreNVL/EL5k/TqjC63T8da8A0Ew9gspTD5nG9kftu\n6tK9njUzSA92HRFH9btofq0hSVflAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP\nBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSaCwc7IeM6tmIcYwzrlcoSAG11BjAV\nBgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQBmvUUAezIA\nbXIIStBzHgicX6U2twos5CvdJz+BCXNBdejaoEvvv0xtWPH3CdDvzYHLXxEFfh57\nQOyx4V+hr3S1gbEWrDTQnLOsqhhdkwJcEQvg8WcybIvG7yrjZG42WkZTrDovyOBq\nCHA/JEm7QpNyDOFe3V9cwKt+jPrd04xIKzhtnC9cEHYJi2NlaBqVFtIRennaoS56\nz8Cc16nk+klnU7AFq1PngdYo6RjCD1B0kGfPxejjG2BL3Qbsu21a4webbuwehnEN\nusiN7kjx2nO5M4bCrBeFraUHlTNNbLJ8VXFAl9o3q71iSWWUknRDQAkGIgpCsrLS\nLGbujX62Kjpg\n-----END CERTIFICATE-----\n"
+     },
+     "metadata": {
+      "annotations": {
+       "kubernetes.io/description": "Contains a CA bundle that can be used to verify the kube-apiserver when using internal endpoints such as the internal service IP or kubernetes.default.svc. No other usage is guaranteed across distributions of Kubernetes clusters."
+      },
+      "creationTimestamp": "2026-11-17T19:17:40Z",
+      "name": "kube-root-ca.crt",
+      "namespace": "payments",
+      "resourceVersion": "525",
+      "uid": "381dbab8-657f-47d8-96a2-67e5830b8d14"
+     }
+    },
+    {
+     "data": {
+      "default.conf": "server {\n  listen 8080;\n  location = /health { return 200 \"ok\\n\"; }\n  location = /       { return 200 \"payments-api v1.8.0\\n\"; }\n  location /         { return 404; }\n}\n"
+     },
+     "metadata": {
+      "creationTimestamp": "2026-11-18T20:09:34Z",
+      "name": "payments-api-nginx",
+      "namespace": "payments",
+      "resourceVersion": "69163",
+      "uid": "209901cb-620a-46a2-96df-14226d88c080"
+     }
+    }
+   ],
+   "deployments": [
+    {
+     "metadata": {
+      "annotations": {
+       "deployment.kubernetes.io/revision": "1"
+      },
+      "creationTimestamp": "2026-11-18T20:09:35Z",
+      "generation": 1,
+      "name": "payments-api",
+      "namespace": "payments",
+      "resourceVersion": "70350",
+      "uid": "372cc5f3-c16d-4a46-8abb-f2c1a8e215ee"
+     },
+     "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 2,
+      "revisionHistoryLimit": 10,
+      "selector": {
+       "matchLabels": {
+        "app": "payments-api"
+       }
+      },
+      "strategy": {
+       "rollingUpdate": {
+        "maxSurge": "25%",
+        "maxUnavailable": "25%"
+       },
+       "type": "RollingUpdate"
+      },
+      "template": {
+       "metadata": {
+        "labels": {
+         "app": "payments-api"
+        }
+       },
+       "spec": {
+        "containers": [
+         {
+          "image": "nginx:1.27-alpine",
+          "imagePullPolicy": "IfNotPresent",
+          "livenessProbe": {
+           "failureThreshold": 3,
+           "periodSeconds": 10,
+           "successThreshold": 1,
+           "tcpSocket": {
+            "port": 8080
+           },
+           "timeoutSeconds": 1
+          },
+          "name": "api",
+          "ports": [
+           {
+            "containerPort": 8080,
+            "protocol": "TCP"
+           }
+          ],
+          "readinessProbe": {
+           "failureThreshold": 3,
+           "httpGet": {
+            "path": "/healthz",
+            "port": 8080,
+            "scheme": "HTTP"
+           },
+           "periodSeconds": 5,
+           "successThreshold": 1,
+           "timeoutSeconds": 1
+          },
+          "resources": {
+           "limits": {
+            "memory": "64Mi"
+           },
+           "requests": {
+            "cpu": "10m",
+            "memory": "16Mi"
+           }
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File",
+          "volumeMounts": [
+           {
+            "mountPath": "/etc/nginx/conf.d",
+            "name": "nginx-conf"
+           }
+          ]
+         }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "terminationGracePeriodSeconds": 30,
+        "volumes": [
+         {
+          "configMap": {
+           "defaultMode": 420,
+           "name": "payments-api-nginx"
+          },
+          "name": "nginx-conf"
+         }
+        ]
+       }
+      }
+     },
+     "status": {
+      "conditions": [
+       {
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "lastUpdateTime": "2026-11-18T20:09:35Z",
+        "message": "Deployment does not have minimum availability.",
+        "reason": "MinimumReplicasUnavailable",
+        "status": "False",
+        "type": "Available"
+       },
+       {
+        "lastTransitionTime": "2026-11-18T20:19:36Z",
+        "lastUpdateTime": "2026-11-18T20:19:36Z",
+        "message": "ReplicaSet \"payments-api-78447cfc7d\" has timed out progressing.",
+        "reason": "ProgressDeadlineExceeded",
+        "status": "False",
+        "type": "Progressing"
+       }
+      ],
+      "observedGeneration": 1,
+      "replicas": 2,
+      "terminatingReplicas": 0,
+      "unavailableReplicas": 2,
+      "updatedReplicas": 2
+     }
+    }
+   ],
+   "endpointslices": [
+    {
+     "addressType": "IPv4",
+     "endpoints": [
+      {
+       "addresses": [
+        "10.244.0.47"
+       ],
+       "conditions": {
+        "ready": false,
+        "serving": false,
+        "terminating": false
+       },
+       "nodeName": "diagnoster-control-plane",
+       "targetRef": {
+        "kind": "Pod",
+        "name": "payments-api-78447cfc7d-gddw6",
+        "namespace": "payments",
+        "uid": "4915fd2f-7881-476a-934b-38e3b31403bf"
+       }
+      },
+      {
+       "addresses": [
+        "10.244.0.48"
+       ],
+       "conditions": {
+        "ready": false,
+        "serving": false,
+        "terminating": false
+       },
+       "nodeName": "diagnoster-control-plane",
+       "targetRef": {
+        "kind": "Pod",
+        "name": "payments-api-78447cfc7d-g8qpq",
+        "namespace": "payments",
+        "uid": "ec3fda44-3d79-4507-a547-57ca48840df8"
+       }
+      }
+     ],
+     "metadata": {
+      "creationTimestamp": "2026-11-18T20:09:35Z",
+      "generateName": "payments-api-",
+      "generation": 3,
+      "labels": {
+       "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+       "kubernetes.io/service-name": "payments-api"
+      },
+      "name": "payments-api-fdj7m",
+      "namespace": "payments",
+      "ownerReferences": [
+       {
+        "apiVersion": "v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Service",
+        "name": "payments-api",
+        "uid": "e7d02d26-5b1c-4618-88eb-616395038f08"
+       }
+      ],
+      "resourceVersion": "69200",
+      "uid": "c0df64d1-90b9-46ff-97a5-eecc6ea377dd"
+     },
+     "ports": [
+      {
+       "name": "",
+       "port": 8080,
+       "protocol": "TCP"
+      }
+     ]
+    }
+   ],
+   "events": [
+    {
+     "count": 1671,
+     "eventTime": null,
+     "firstTimestamp": "2026-11-18T20:09:35Z",
+     "involvedObject": {
+      "apiVersion": "v1",
+      "fieldPath": "spec.containers{api}",
+      "kind": "Pod",
+      "name": "payments-api-78447cfc7d-g8qpq",
+      "namespace": "payments",
+      "resourceVersion": "69173",
+      "uid": "ec3fda44-3d79-4507-a547-57ca48840df8"
+     },
+     "lastTimestamp": "2026-11-18T22:24:35Z",
+     "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+     "metadata": {
+      "creationTimestamp": "2026-11-18T20:09:35Z",
+      "name": "payments-api-78447cfc7d-g8qpq.18e93c9dfb72da20",
+      "namespace": "payments",
+      "resourceVersion": "81324",
+      "uid": "0724633b-c729-4d35-a14f-70c75cda1ea4"
+     },
+     "reason": "Unhealthy",
+     "reportingComponent": "kubelet",
+     "reportingInstance": "diagnoster-control-plane",
+     "source": {
+      "component": "kubelet",
+      "host": "diagnoster-control-plane"
+     },
+     "type": "Warning"
+    },
+    {
+     "count": 1665,
+     "eventTime": null,
+     "firstTimestamp": "2026-11-18T20:09:35Z",
+     "involvedObject": {
+      "apiVersion": "v1",
+      "fieldPath": "spec.containers{api}",
+      "kind": "Pod",
+      "name": "payments-api-78447cfc7d-gddw6",
+      "namespace": "payments",
+      "resourceVersion": "69175",
+      "uid": "4915fd2f-7881-476a-934b-38e3b31403bf"
+     },
+     "lastTimestamp": "2026-11-18T22:24:37Z",
+     "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+     "metadata": {
+      "creationTimestamp": "2026-11-18T20:09:35Z",
+      "name": "payments-api-78447cfc7d-gddw6.18e93c9dfb72e943",
+      "namespace": "payments",
+      "resourceVersion": "81327",
+      "uid": "75d02715-d195-40f3-a7c7-a626ba915bfe"
+     },
+     "reason": "Unhealthy",
+     "reportingComponent": "kubelet",
+     "reportingInstance": "diagnoster-control-plane",
+     "source": {
+      "component": "kubelet",
+      "host": "diagnoster-control-plane"
+     },
+     "type": "Warning"
+    }
+   ],
+   "logs": {
+    "payments-api-78447cfc7d-g8qpq/api": {
+     "current": "10.244.0.1 - - [18/Nov/2026:22:21:46 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:51 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:56 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:01 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:06 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:11 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:16 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:21 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:26 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:31 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:36 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:41 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:46 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:51 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:52 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:57 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:02 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:07 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:12 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:17 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:22 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:27 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:32 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:37 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:42 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:47 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:52 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:57 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:00 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:05 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:10 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:15 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:20 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:25 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:30 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:35 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:40 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:45 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:50 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:55 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:00 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:05 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:10 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:15 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:20 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:25 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:30 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:35 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:40 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:45 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n",
+     "previous": null
+    },
+    "payments-api-78447cfc7d-gddw6/api": {
+     "current": "10.244.0.1 - - [18/Nov/2026:22:21:51 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:56 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:01 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:06 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:11 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:16 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:21 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:26 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:31 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:36 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:41 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:46 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:51 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:56 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:01 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:06 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:09 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:14 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:19 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:24 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:29 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:34 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:39 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:44 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:49 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:54 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:59 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:04 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:09 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:14 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:19 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:24 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:27 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:32 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:37 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:42 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:47 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:52 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:57 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:02 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:07 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:12 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:17 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:22 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:27 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:32 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:37 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:42 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:43 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:48 +0000] \"GET /healthz HTTP/1.1\" 404 153 \"-\" \"kube-probe/1.36\" \"-\"\n",
+     "previous": null
+    }
+   },
+   "pods": [
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T20:09:35Z",
+      "generateName": "payments-api-78447cfc7d-",
+      "generation": 1,
+      "labels": {
+       "app": "payments-api",
+       "pod-template-hash": "78447cfc7d"
+      },
+      "name": "payments-api-78447cfc7d-g8qpq",
+      "namespace": "payments",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "payments-api-78447cfc7d",
+        "uid": "62240eb8-cf00-45eb-bb0c-c34af319c41e"
+       }
+      ],
+      "resourceVersion": "69361",
+      "uid": "ec3fda44-3d79-4507-a547-57ca48840df8"
+     },
+     "spec": {
+      "containers": [
+       {
+        "image": "nginx:1.27-alpine",
+        "imagePullPolicy": "IfNotPresent",
+        "livenessProbe": {
+         "failureThreshold": 3,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "tcpSocket": {
+          "port": 8080
+         },
+         "timeoutSeconds": 1
+        },
+        "name": "api",
+        "ports": [
+         {
+          "containerPort": 8080,
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "failureThreshold": 3,
+         "httpGet": {
+          "path": "/healthz",
+          "port": 8080,
+          "scheme": "HTTP"
+         },
+         "periodSeconds": 5,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/etc/nginx/conf.d",
+          "name": "nginx-conf"
+         },
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-ncppt",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "configMap": {
+         "defaultMode": 420,
+         "name": "payments-api-nginx"
+        },
+        "name": "nginx-conf"
+       },
+       {
+        "name": "kube-api-access-ncppt",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "message": "containers with unready status: [api]",
+        "observedGeneration": 1,
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "message": "containers with unready status: [api]",
+        "observedGeneration": 1,
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://77b341e346e1b1e427e6f66d36c5254e6d37cd2b771d0666a2554bc14b43368c",
+        "image": "docker.io/library/nginx:1.27-alpine",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:03b60c30be0e9a209018f89690a5790cb5670fa5591ca528ca3e514222c846a5",
+        "lastState": {},
+        "name": "api",
+        "ready": false,
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T20:09:35Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           1,
+           2,
+           3,
+           4,
+           6,
+           10,
+           11,
+           20,
+           26,
+           27
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/etc/nginx/conf.d",
+          "name": "nginx-conf"
+         },
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-ncppt",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.48",
+      "podIPs": [
+       {
+        "ip": "10.244.0.48"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "64Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T20:09:35Z"
+     }
+    },
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T20:09:35Z",
+      "generateName": "payments-api-78447cfc7d-",
+      "generation": 1,
+      "labels": {
+       "app": "payments-api",
+       "pod-template-hash": "78447cfc7d"
+      },
+      "name": "payments-api-78447cfc7d-gddw6",
+      "namespace": "payments",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "payments-api-78447cfc7d",
+        "uid": "62240eb8-cf00-45eb-bb0c-c34af319c41e"
+       }
+      ],
+      "resourceVersion": "69335",
+      "uid": "4915fd2f-7881-476a-934b-38e3b31403bf"
+     },
+     "spec": {
+      "containers": [
+       {
+        "image": "nginx:1.27-alpine",
+        "imagePullPolicy": "IfNotPresent",
+        "livenessProbe": {
+         "failureThreshold": 3,
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "tcpSocket": {
+          "port": 8080
+         },
+         "timeoutSeconds": 1
+        },
+        "name": "api",
+        "ports": [
+         {
+          "containerPort": 8080,
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "failureThreshold": 3,
+         "httpGet": {
+          "path": "/healthz",
+          "port": 8080,
+          "scheme": "HTTP"
+         },
+         "periodSeconds": 5,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/etc/nginx/conf.d",
+          "name": "nginx-conf"
+         },
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-g4j6c",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "configMap": {
+         "defaultMode": 420,
+         "name": "payments-api-nginx"
+        },
+        "name": "nginx-conf"
+       },
+       {
+        "name": "kube-api-access-g4j6c",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "message": "containers with unready status: [api]",
+        "observedGeneration": 1,
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "message": "containers with unready status: [api]",
+        "observedGeneration": 1,
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T20:09:35Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://4a9ca4d960d8fe6df6cb0ab8a25483edc65bb8d6ac9333acb5acb90fa4c4940b",
+        "image": "docker.io/library/nginx:1.27-alpine",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:03b60c30be0e9a209018f89690a5790cb5670fa5591ca528ca3e514222c846a5",
+        "lastState": {},
+        "name": "api",
+        "ready": false,
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T20:09:35Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           1,
+           2,
+           3,
+           4,
+           6,
+           10,
+           11,
+           20,
+           26,
+           27
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/etc/nginx/conf.d",
+          "name": "nginx-conf"
+         },
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-g4j6c",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.47",
+      "podIPs": [
+       {
+        "ip": "10.244.0.47"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "64Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T20:09:35Z"
+     }
+    }
+   ],
+   "services": [
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T20:09:35Z",
+      "name": "payments-api",
+      "namespace": "payments",
+      "resourceVersion": "69171",
+      "uid": "e7d02d26-5b1c-4618-88eb-616395038f08"
+     },
+     "spec": {
+      "clusterIP": "10.96.221.252",
+      "clusterIPs": [
+       "10.96.221.252"
+      ],
+      "internalTrafficPolicy": "Cluster",
+      "ipFamilies": [
+       "IPv4"
+      ],
+      "ipFamilyPolicy": "SingleStack",
+      "ports": [
+       {
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": 8080
+       }
+      ],
+      "selector": {
+       "app": "payments-api"
+      },
+      "sessionAffinity": "None",
+      "type": "ClusterIP"
+     },
+     "status": {
+      "loadBalancer": {}
+     }
+    }
+   ]
+  },
+  "shop": {
+   "configmaps": [
+    {
+     "data": {
+      "DB_URL": "postgres://orders-db.shop:5432/checkout",
+      "LOG_LEVEL": "info",
+      "PAYMENT_TIMEOUT_SECONDS": "30"
+     },
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "name": "checkout-config",
+      "namespace": "shop",
+      "resourceVersion": "74311",
+      "uid": "a7945056-b091-46ce-bd3a-bf4908f543f6"
+     }
+    },
+    {
+     "data": {
+      "ca.crt": "-----BEGIN CERTIFICATE-----\nMIIDBTCCAe2gAwIBAgIIMRROuEIwI/EwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE\nAxMKa3ViZXJuZXRlczAeFw0yNjExMTcxOTEyMTZaFw0zNjExMTQxOTE3MTZaMBUx\nEzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK\nAoIBAQDC1aPRB5MLsDrwQx2E5rjFYRqZA7/Mo52o6SEDOhUBjQk7Z4ghLg8nJzXX\neB1r8aRBvdOK7yP1Lt05SCYAjVs9BLnaUe7eGpGHL55pgli6UyB8zu4nMnpLEQOS\nejleQWOfjxSmNowdsIK9rhbDWXSlBlEbO2YyP93EiAMEGRSzWTzwaz8V/q7jwb6p\nuptmyTUGZSurF6ccsK/moQqid1jQUT5i3vH/nspKiWjWH8TVrXAPN77Cng32unbt\nBSK2d1vyhK5NQNNE4AWTlaxVreNVL/EL5k/TqjC63T8da8A0Ew9gspTD5nG9kftu\n6tK9njUzSA92HRFH9btofq0hSVflAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP\nBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSaCwc7IeM6tmIcYwzrlcoSAG11BjAV\nBgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQBmvUUAezIA\nbXIIStBzHgicX6U2twos5CvdJz+BCXNBdejaoEvvv0xtWPH3CdDvzYHLXxEFfh57\nQOyx4V+hr3S1gbEWrDTQnLOsqhhdkwJcEQvg8WcybIvG7yrjZG42WkZTrDovyOBq\nCHA/JEm7QpNyDOFe3V9cwKt+jPrd04xIKzhtnC9cEHYJi2NlaBqVFtIRennaoS56\nz8Cc16nk+klnU7AFq1PngdYo6RjCD1B0kGfPxejjG2BL3Qbsu21a4webbuwehnEN\nusiN7kjx2nO5M4bCrBeFraUHlTNNbLJ8VXFAl9o3q71iSWWUknRDQAkGIgpCsrLS\nLGbujX62Kjpg\n-----END CERTIFICATE-----\n"
+     },
+     "metadata": {
+      "annotations": {
+       "kubernetes.io/description": "Contains a CA bundle that can be used to verify the kube-apiserver when using internal endpoints such as the internal service IP or kubernetes.default.svc. No other usage is guaranteed across distributions of Kubernetes clusters."
+      },
+      "creationTimestamp": "2026-11-17T19:17:40Z",
+      "name": "kube-root-ca.crt",
+      "namespace": "shop",
+      "resourceVersion": "521",
+      "uid": "7f30b10a-7106-4e6a-ab54-6e814e7eb00a"
+     }
+    }
+   ],
+   "deployments": [
+    {
+     "metadata": {
+      "annotations": {
+       "deployment.kubernetes.io/revision": "1"
+      },
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generation": 1,
+      "name": "checkout",
+      "namespace": "shop",
+      "resourceVersion": "81228",
+      "uid": "f613e998-44d8-4a53-81cf-c74812ae8a9f"
+     },
+     "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+       "matchLabels": {
+        "app": "checkout"
+       }
+      },
+      "strategy": {
+       "rollingUpdate": {
+        "maxSurge": "25%",
+        "maxUnavailable": "25%"
+       },
+       "type": "RollingUpdate"
+      },
+      "template": {
+       "metadata": {
+        "labels": {
+         "app": "checkout"
+        }
+       },
+       "spec": {
+        "containers": [
+         {
+          "args": [
+           "echo \"checkout-service v2.4.1 starting (log level: $LOG_LEVEL)\"\necho \"loading database settings\"\nif [ -z \"$DATABASE_URL\" ]; then\n  echo \"FATAL: DATABASE_URL is not set, cannot connect to database\" >&2\n  exit 1\nfi\necho \"connected to $DATABASE_URL\"\nsleep infinity\n"
+          ],
+          "command": [
+           "sh",
+           "-c"
+          ],
+          "envFrom": [
+           {
+            "configMapRef": {
+             "name": "checkout-config"
+            }
+           }
+          ],
+          "image": "busybox:1.36",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "app",
+          "ports": [
+           {
+            "containerPort": 8080,
+            "protocol": "TCP"
+           }
+          ],
+          "resources": {
+           "limits": {
+            "memory": "64Mi"
+           },
+           "requests": {
+            "cpu": "10m",
+            "memory": "16Mi"
+           }
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File"
+         }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "terminationGracePeriodSeconds": 30
+       }
+      }
+     },
+     "status": {
+      "conditions": [
+       {
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "lastUpdateTime": "2026-11-18T21:06:03Z",
+        "message": "ReplicaSet \"checkout-868f7c7c\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+       },
+       {
+        "lastTransitionTime": "2026-11-18T22:23:27Z",
+        "lastUpdateTime": "2026-11-18T22:23:27Z",
+        "message": "Deployment does not have minimum availability.",
+        "reason": "MinimumReplicasUnavailable",
+        "status": "False",
+        "type": "Available"
+       }
+      ],
+      "observedGeneration": 1,
+      "replicas": 1,
+      "terminatingReplicas": 0,
+      "unavailableReplicas": 1,
+      "updatedReplicas": 1
+     }
+    },
+    {
+     "metadata": {
+      "annotations": {
+       "deployment.kubernetes.io/revision": "1"
+      },
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generation": 1,
+      "name": "frontend",
+      "namespace": "shop",
+      "resourceVersion": "74400",
+      "uid": "8ed88032-9392-4347-9bb6-3c7ca9b2e89c"
+     },
+     "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+       "matchLabels": {
+        "app": "frontend"
+       }
+      },
+      "strategy": {
+       "rollingUpdate": {
+        "maxSurge": "25%",
+        "maxUnavailable": "25%"
+       },
+       "type": "RollingUpdate"
+      },
+      "template": {
+       "metadata": {
+        "labels": {
+         "app": "frontend"
+        }
+       },
+       "spec": {
+        "containers": [
+         {
+          "image": "nginx:1.27-alpine",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "nginx",
+          "ports": [
+           {
+            "containerPort": 80,
+            "protocol": "TCP"
+           }
+          ],
+          "readinessProbe": {
+           "failureThreshold": 3,
+           "httpGet": {
+            "path": "/",
+            "port": 80,
+            "scheme": "HTTP"
+           },
+           "periodSeconds": 10,
+           "successThreshold": 1,
+           "timeoutSeconds": 1
+          },
+          "resources": {
+           "limits": {
+            "memory": "64Mi"
+           },
+           "requests": {
+            "cpu": "10m",
+            "memory": "16Mi"
+           }
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File"
+         }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "terminationGracePeriodSeconds": 30
+       }
+      }
+     },
+     "status": {
+      "availableReplicas": 1,
+      "conditions": [
+       {
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "lastUpdateTime": "2026-11-18T21:06:03Z",
+        "message": "Deployment has minimum availability.",
+        "reason": "MinimumReplicasAvailable",
+        "status": "True",
+        "type": "Available"
+       },
+       {
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "lastUpdateTime": "2026-11-18T21:06:03Z",
+        "message": "ReplicaSet \"frontend-6458597456\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+       }
+      ],
+      "observedGeneration": 1,
+      "readyReplicas": 1,
+      "replicas": 1,
+      "terminatingReplicas": 0,
+      "updatedReplicas": 1
+     }
+    }
+   ],
+   "endpointslices": [
+    {
+     "addressType": "IPv4",
+     "endpoints": [
+      {
+       "addresses": [
+        "10.244.0.58"
+       ],
+       "conditions": {
+        "ready": false,
+        "serving": false,
+        "terminating": false
+       },
+       "nodeName": "diagnoster-control-plane",
+       "targetRef": {
+        "kind": "Pod",
+        "name": "checkout-868f7c7c-gm7hp",
+        "namespace": "shop",
+        "uid": "2e0b3591-dc4c-444c-82bc-41f9343d61fe"
+       }
+      }
+     ],
+     "metadata": {
+      "annotations": {
+       "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-18T22:23:27Z"
+      },
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generateName": "checkout-",
+      "generation": 43,
+      "labels": {
+       "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+       "kubernetes.io/service-name": "checkout"
+      },
+      "name": "checkout-lwk4z",
+      "namespace": "shop",
+      "ownerReferences": [
+       {
+        "apiVersion": "v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Service",
+        "name": "checkout",
+        "uid": "bd261964-2af4-436f-8f12-c6c2e4b9c3f1"
+       }
+      ],
+      "resourceVersion": "81227",
+      "uid": "ecff1639-64b5-4eb1-aed6-d6e128d8c55b"
+     },
+     "ports": [
+      {
+       "name": "",
+       "port": 8080,
+       "protocol": "TCP"
+      }
+     ]
+    },
+    {
+     "addressType": "IPv4",
+     "endpoints": [
+      {
+       "addresses": [
+        "10.244.0.57"
+       ],
+       "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+       },
+       "nodeName": "diagnoster-control-plane",
+       "targetRef": {
+        "kind": "Pod",
+        "name": "frontend-6458597456-hl9c4",
+        "namespace": "shop",
+        "uid": "88be8b16-7c97-4f14-bff1-a0ef9f098a6e"
+       }
+      }
+     ],
+     "metadata": {
+      "annotations": {
+       "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-18T21:06:03Z"
+      },
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generateName": "frontend-",
+      "generation": 3,
+      "labels": {
+       "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+       "kubernetes.io/service-name": "frontend"
+      },
+      "name": "frontend-5f7tw",
+      "namespace": "shop",
+      "ownerReferences": [
+       {
+        "apiVersion": "v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Service",
+        "name": "frontend",
+        "uid": "7c8b0291-89cd-4c8d-8427-8b9010c175af"
+       }
+      ],
+      "resourceVersion": "74397",
+      "uid": "11284cc0-5351-4265-a928-619a3e306f4e"
+     },
+     "ports": [
+      {
+       "name": "",
+       "port": 80,
+       "protocol": "TCP"
+      }
+     ]
+    }
+   ],
+   "events": [
+    {
+     "count": 21,
+     "eventTime": null,
+     "firstTimestamp": "2026-11-18T21:06:03Z",
+     "involvedObject": {
+      "apiVersion": "v1",
+      "fieldPath": "spec.containers{app}",
+      "kind": "Pod",
+      "name": "checkout-868f7c7c-gm7hp",
+      "namespace": "shop",
+      "resourceVersion": "74324",
+      "uid": "2e0b3591-dc4c-444c-82bc-41f9343d61fe"
+     },
+     "lastTimestamp": "2026-11-18T22:23:26Z",
+     "message": "Container image \"busybox:1.36\" already present on machine and can be accessed by the pod",
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:03Z",
+      "name": "checkout-868f7c7c-gm7hp.18e93fb2a95c28b7",
+      "namespace": "shop",
+      "resourceVersion": "81214",
+      "uid": "1911582c-1beb-4a0c-9b3b-1b1469f67d91"
+     },
+     "reason": "Pulled",
+     "reportingComponent": "kubelet",
+     "reportingInstance": "diagnoster-control-plane",
+     "source": {
+      "component": "kubelet",
+      "host": "diagnoster-control-plane"
+     },
+     "type": "Normal"
+    },
+    {
+     "count": 10,
+     "eventTime": null,
+     "firstTimestamp": "2026-11-18T21:06:03Z",
+     "involvedObject": {
+      "apiVersion": "v1",
+      "fieldPath": "spec.containers{app}",
+      "kind": "Pod",
+      "name": "checkout-868f7c7c-gm7hp",
+      "namespace": "shop",
+      "resourceVersion": "74324",
+      "uid": "2e0b3591-dc4c-444c-82bc-41f9343d61fe"
+     },
+     "lastTimestamp": "2026-11-18T21:27:04Z",
+     "message": "Container created",
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:03Z",
+      "name": "checkout-868f7c7c-gm7hp.18e93fb2ab1a2bea",
+      "namespace": "shop",
+      "resourceVersion": "76309",
+      "uid": "b31efb19-f135-49ea-9ebd-f2fae1632af8"
+     },
+     "reason": "Created",
+     "reportingComponent": "kubelet",
+     "reportingInstance": "diagnoster-control-plane",
+     "source": {
+      "component": "kubelet",
+      "host": "diagnoster-control-plane"
+     },
+     "type": "Normal"
+    },
+    {
+     "count": 68,
+     "eventTime": null,
+     "firstTimestamp": "2026-11-18T21:06:04Z",
+     "involvedObject": {
+      "apiVersion": "v1",
+      "fieldPath": "spec.containers{app}",
+      "kind": "Pod",
+      "name": "checkout-868f7c7c-gm7hp",
+      "namespace": "shop",
+      "resourceVersion": "74324",
+      "uid": "2e0b3591-dc4c-444c-82bc-41f9343d61fe"
+     },
+     "lastTimestamp": "2026-11-18T22:22:02Z",
+     "message": "Back-off restarting failed container app in pod checkout-868f7c7c-gm7hp_shop(2e0b3591-dc4c-444c-82bc-41f9343d61fe)",
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:04Z",
+      "name": "checkout-868f7c7c-gm7hp.18e93fb316be54b5",
+      "namespace": "shop",
+      "resourceVersion": "81096",
+      "uid": "dfbf515a-f4ed-4dd6-ba95-95b52f585305"
+     },
+     "reason": "BackOff",
+     "reportingComponent": "kubelet",
+     "reportingInstance": "diagnoster-control-plane",
+     "source": {
+      "component": "kubelet",
+      "host": "diagnoster-control-plane"
+     },
+     "type": "Warning"
+    }
+   ],
+   "logs": {
+    "checkout-868f7c7c-gm7hp/app": {
+     "current": "checkout-service v2.4.1 starting (log level: info)\nloading database settings\nFATAL: DATABASE_URL is not set, cannot connect to database\n",
+     "previous": "checkout-service v2.4.1 starting (log level: info)\nloading database settings\nFATAL: DATABASE_URL is not set, cannot connect to database\n"
+    },
+    "frontend-6458597456-hl9c4/nginx": {
+     "current": "10.244.0.1 - - [18/Nov/2026:22:17:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:17:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:17:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:18:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:19:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:20:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:21:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:22:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:23:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:24:53 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:03 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:13 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:23 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:33 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n10.244.0.1 - - [18/Nov/2026:22:25:43 +0000] \"GET / HTTP/1.1\" 200 615 \"-\" \"kube-probe/1.36\" \"-\"\n",
+     "previous": null
+    }
+   },
+   "pods": [
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generateName": "checkout-868f7c7c-",
+      "generation": 1,
+      "labels": {
+       "app": "checkout",
+       "pod-template-hash": "868f7c7c"
+      },
+      "name": "checkout-868f7c7c-gm7hp",
+      "namespace": "shop",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "checkout-868f7c7c",
+        "uid": "384861ab-671f-40c9-8812-612b1c67b5a4"
+       }
+      ],
+      "resourceVersion": "81346",
+      "uid": "2e0b3591-dc4c-444c-82bc-41f9343d61fe"
+     },
+     "spec": {
+      "containers": [
+       {
+        "args": [
+         "echo \"checkout-service v2.4.1 starting (log level: $LOG_LEVEL)\"\necho \"loading database settings\"\nif [ -z \"$DATABASE_URL\" ]; then\n  echo \"FATAL: DATABASE_URL is not set, cannot connect to database\" >&2\n  exit 1\nfi\necho \"connected to $DATABASE_URL\"\nsleep infinity\n"
+        ],
+        "command": [
+         "sh",
+         "-c"
+        ],
+        "envFrom": [
+         {
+          "configMapRef": {
+           "name": "checkout-config"
+          }
+         }
+        ],
+        "image": "busybox:1.36",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "app",
+        "ports": [
+         {
+          "containerPort": 8080,
+          "protocol": "TCP"
+         }
+        ],
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-9kvfz",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "name": "kube-api-access-9kvfz",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T22:23:27Z",
+        "message": "containers with unready status: [app]",
+        "observedGeneration": 1,
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T22:23:27Z",
+        "message": "containers with unready status: [app]",
+        "observedGeneration": 1,
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://7452e671b54fbacc9103d14d658ad2e0e42439924b510aae8b0bc31cd26cd8be",
+        "image": "docker.io/library/busybox:1.36",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:9a3e3915c2c1522e6b53b95a78931b7e543d34a22527964c05ba45368ac70e97",
+        "lastState": {
+         "terminated": {
+          "containerID": "containerd://7452e671b54fbacc9103d14d658ad2e0e42439924b510aae8b0bc31cd26cd8be",
+          "exitCode": 1,
+          "finishedAt": "2026-11-18T22:23:26Z",
+          "reason": "Error",
+          "startedAt": "2026-11-18T22:23:26Z"
+         }
+        },
+        "name": "app",
+        "ready": false,
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 20,
+        "started": false,
+        "state": {
+         "waiting": {
+          "message": "back-off 5m0s restarting failed container=app pod=checkout-868f7c7c-gm7hp_shop(2e0b3591-dc4c-444c-82bc-41f9343d61fe)",
+          "reason": "CrashLoopBackOff"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           10
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-9kvfz",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.58",
+      "podIPs": [
+       {
+        "ip": "10.244.0.58"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "64Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T21:06:02Z"
+     }
+    },
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "generateName": "frontend-6458597456-",
+      "generation": 1,
+      "labels": {
+       "app": "frontend",
+       "pod-template-hash": "6458597456"
+      },
+      "name": "frontend-6458597456-hl9c4",
+      "namespace": "shop",
+      "ownerReferences": [
+       {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "ReplicaSet",
+        "name": "frontend-6458597456",
+        "uid": "91e5b24a-6200-47c8-9efd-a40374abead2"
+       }
+      ],
+      "resourceVersion": "74414",
+      "uid": "88be8b16-7c97-4f14-bff1-a0ef9f098a6e"
+     },
+     "spec": {
+      "containers": [
+       {
+        "image": "nginx:1.27-alpine",
+        "imagePullPolicy": "IfNotPresent",
+        "name": "nginx",
+        "ports": [
+         {
+          "containerPort": 80,
+          "protocol": "TCP"
+         }
+        ],
+        "readinessProbe": {
+         "failureThreshold": 3,
+         "httpGet": {
+          "path": "/",
+          "port": 80,
+          "scheme": "HTTP"
+         },
+         "periodSeconds": 10,
+         "successThreshold": 1,
+         "timeoutSeconds": 1
+        },
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "terminationMessagePath": "/dev/termination-log",
+        "terminationMessagePolicy": "File",
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-b956z",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "diagnoster-control-plane",
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Always",
+      "schedulerName": "default-scheduler",
+      "securityContext": {},
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/not-ready",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       },
+       {
+        "effect": "NoExecute",
+        "key": "node.kubernetes.io/unreachable",
+        "operator": "Exists",
+        "tolerationSeconds": 300
+       }
+      ],
+      "volumes": [
+       {
+        "name": "kube-api-access-b956z",
+        "projected": {
+         "defaultMode": 420,
+         "sources": [
+          {
+           "serviceAccountToken": {
+            "expirationSeconds": 3607,
+            "path": "token"
+           }
+          },
+          {
+           "configMap": {
+            "items": [
+             {
+              "key": "ca.crt",
+              "path": "ca.crt"
+             }
+            ],
+            "name": "kube-root-ca.crt"
+           }
+          },
+          {
+           "downwardAPI": {
+            "items": [
+             {
+              "fieldRef": {
+               "apiVersion": "v1",
+               "fieldPath": "metadata.namespace"
+              },
+              "path": "namespace"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "status": {
+      "allocatedResources": {
+       "cpu": "10m",
+       "memory": "16Mi"
+      },
+      "conditions": [
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Initialized"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "Ready"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:03Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "ContainersReady"
+       },
+       {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-11-18T21:06:02Z",
+        "observedGeneration": 1,
+        "status": "True",
+        "type": "PodScheduled"
+       }
+      ],
+      "containerStatuses": [
+       {
+        "allocatedResources": {
+         "cpu": "10m",
+         "memory": "16Mi"
+        },
+        "containerID": "containerd://65ad7aced2508bd662c9290d3c8f436212667cafc1e2f6af3e0269ae82661913",
+        "image": "docker.io/library/nginx:1.27-alpine",
+        "imageID": "docker.io/library/import-2026-11-17@sha256:03b60c30be0e9a209018f89690a5790cb5670fa5591ca528ca3e514222c846a5",
+        "lastState": {},
+        "name": "nginx",
+        "ready": true,
+        "resources": {
+         "limits": {
+          "memory": "64Mi"
+         },
+         "requests": {
+          "cpu": "10m",
+          "memory": "16Mi"
+         }
+        },
+        "restartCount": 0,
+        "started": true,
+        "state": {
+         "running": {
+          "startedAt": "2026-11-18T21:06:03Z"
+         }
+        },
+        "user": {
+         "linux": {
+          "gid": 0,
+          "supplementalGroups": [
+           0,
+           1,
+           2,
+           3,
+           4,
+           6,
+           10,
+           11,
+           20,
+           26,
+           27
+          ],
+          "uid": 0
+         }
+        },
+        "volumeMounts": [
+         {
+          "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+          "name": "kube-api-access-b956z",
+          "readOnly": true,
+          "recursiveReadOnly": "Disabled"
+         }
+        ]
+       }
+      ],
+      "hostIP": "172.19.0.2",
+      "hostIPs": [
+       {
+        "ip": "172.19.0.2"
+       }
+      ],
+      "observedGeneration": 1,
+      "phase": "Running",
+      "podIP": "10.244.0.57",
+      "podIPs": [
+       {
+        "ip": "10.244.0.57"
+       }
+      ],
+      "qosClass": "Burstable",
+      "resources": {
+       "limits": {
+        "memory": "64Mi"
+       },
+       "requests": {
+        "memory": "16Mi"
+       }
+      },
+      "startTime": "2026-11-18T21:06:02Z"
+     }
+    }
+   ],
+   "services": [
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "name": "checkout",
+      "namespace": "shop",
+      "resourceVersion": "74318",
+      "uid": "bd261964-2af4-436f-8f12-c6c2e4b9c3f1"
+     },
+     "spec": {
+      "clusterIP": "10.96.167.51",
+      "clusterIPs": [
+       "10.96.167.51"
+      ],
+      "internalTrafficPolicy": "Cluster",
+      "ipFamilies": [
+       "IPv4"
+      ],
+      "ipFamilyPolicy": "SingleStack",
+      "ports": [
+       {
+        "port": 8080,
+        "protocol": "TCP",
+        "targetPort": 8080
+       }
+      ],
+      "selector": {
+       "app": "checkout"
+      },
+      "sessionAffinity": "None",
+      "type": "ClusterIP"
+     },
+     "status": {
+      "loadBalancer": {}
+     }
+    },
+    {
+     "metadata": {
+      "creationTimestamp": "2026-11-18T21:06:02Z",
+      "name": "frontend",
+      "namespace": "shop",
+      "resourceVersion": "74308",
+      "uid": "7c8b0291-89cd-4c8d-8427-8b9010c175af"
+     },
+     "spec": {
+      "clusterIP": "10.96.20.249",
+      "clusterIPs": [
+       "10.96.20.249"
+      ],
+      "internalTrafficPolicy": "Cluster",
+      "ipFamilies": [
+       "IPv4"
+      ],
+      "ipFamilyPolicy": "SingleStack",
+      "ports": [
+       {
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": 80
+       }
+      ],
+      "selector": {
+       "app": "frontend"
+      },
+      "sessionAffinity": "None",
+      "type": "ClusterIP"
+     },
+     "status": {
+      "loadBalancer": {}
+     }
+    }
+   ]
+  }
+ },
+ "recorded_at": "2026-11-18T22:25:49+00:00"
+}
