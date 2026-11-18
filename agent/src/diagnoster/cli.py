@@ -2,6 +2,10 @@
 
 Exit code 0 when the run completed, 2 when it stopped (a limit, a timeout,
 an invalid answer or a model error), 1 when it couldn't start.
+
+With --allow-fix, a diagnosis that proposes the one allowed fix goes through
+the remediation workflow: explain, ask, apply, verify. Exit code 3 when that
+fix was applied but verification failed.
 """
 
 import argparse
@@ -12,6 +16,7 @@ from .agent import diagnose
 from .cluster import connect
 from .config import load_settings
 from .contract import RunReport
+from .remediation import Outcome, remediate
 from .tracing import setup
 
 
@@ -48,6 +53,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="diagnose", description="Diagnose a problem in the cluster.")
     parser.add_argument("question", help='e.g. "Checkout in namespace shop is unhealthy. Why?"')
     parser.add_argument("--json", action="store_true", help="print the full RunReport as JSON")
+    parser.add_argument(
+        "--allow-fix",
+        action="store_true",
+        help="offer to apply the proposed fix if it is the allowed one (asks first)",
+    )
     args = parser.parse_args(argv)
 
     settings = load_settings()
@@ -57,16 +67,29 @@ def main(argv: list[str] | None = None) -> int:
         print(e, file=sys.stderr)
         return 1
     provider = setup(settings.phoenix_collector_endpoint)
+    outcome: list[Outcome] = []
+
+    def show_then_fix(report: RunReport) -> None:
+        # Print the diagnosis first: the person approving the fix needs to see it.
+        print(report.model_dump_json(indent=2) if args.json else _summary(report, settings.phoenix_url))
+        if args.allow_fix and report.status == "complete":
+            print()
+            outcome.append(
+                remediate(report.diagnosis, remediator=lambda: connect(settings.remediator_kubeconfig), reader=cluster)
+            )
+            print(outcome[0].detail)
+
     try:
-        report = asyncio.run(diagnose(args.question, settings, cluster))
+        report = asyncio.run(diagnose(args.question, settings, cluster, after=show_then_fix))
     except Exception as e:  # e.g. a missing API key: the model can't even be built
-        print(f"Could not start the run: {e}", file=sys.stderr)
+        print(f"The run failed: {e}", file=sys.stderr)
         return 1
     finally:
         provider.force_flush()
 
-    print(report.model_dump_json(indent=2) if args.json else _summary(report, settings.phoenix_url))
-    return 0 if report.status == "complete" else 2
+    if report.status != "complete":
+        return 2
+    return 3 if outcome and outcome[0].status in ("stale", "not_fixed") else 0
 
 
 if __name__ == "__main__":

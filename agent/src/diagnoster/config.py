@@ -20,6 +20,8 @@ DEFAULT_NAMESPACES = ("shop", "payments", "catalog", "inventory")
 class Settings:
     model: str = DEFAULT_MODEL
     reader_kubeconfig: Path = REPO_ROOT / ".kube" / "reader.kubeconfig"
+    # Loaded only by the remediation workflow, after a person approves the fix.
+    remediator_kubeconfig: Path = REPO_ROOT / ".kube" / "remediator.kubeconfig"
     # The only namespaces the tools accept. The reader's RBAC allows these too,
     # so the list here only saves the model a forbidden call.
     namespaces: tuple[str, ...] = DEFAULT_NAMESPACES
@@ -38,6 +40,7 @@ def load_settings() -> Settings:
     return Settings(
         model=env("MODEL", defaults.model),
         reader_kubeconfig=Path(env("READER_KUBECONFIG", str(defaults.reader_kubeconfig))),
+        remediator_kubeconfig=Path(env("REMEDIATOR_KUBECONFIG", str(defaults.remediator_kubeconfig))),
         namespaces=namespaces,
         phoenix_collector_endpoint=env("PHOENIX_COLLECTOR_ENDPOINT", defaults.phoenix_collector_endpoint),
         phoenix_url=env("PHOENIX_URL", defaults.phoenix_url).rstrip("/"),

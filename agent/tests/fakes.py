@@ -61,7 +61,7 @@ def container(name="app", image="nginx:1.27-alpine", env_=None, env_from=None, r
     )
 
 
-def deployment(name, match, template_labels=None, containers=None, replicas=1, ready=1, volumes=None):
+def deployment(name, match, template_labels=None, containers=None, replicas=1, ready=1, volumes=None, updated=None):
     return N(
         metadata=meta(name),
         spec=N(
@@ -72,7 +72,7 @@ def deployment(name, match, template_labels=None, containers=None, replicas=1, r
                 spec=N(containers=containers or [container()], volumes=volumes),
             ),
         ),
-        status=N(ready_replicas=ready),
+        status=N(ready_replicas=ready, updated_replicas=replicas if updated is None else updated),
     )
 
 
@@ -155,6 +155,10 @@ class _Apps:
     def read_namespaced_deployment(self, name, ns):
         return _find(self.w.deployments, name)
 
+    def patch_namespaced_deployment(self, name, ns, body, field_manager=None):
+        self.w.patches.append((name, ns, body))
+        self.w.field_managers.append(field_manager)
+
 
 class _Discovery:
     def __init__(self, w):
@@ -171,6 +175,8 @@ class World:
         self.pods, self.deployments, self.services, self.slices = [], [], [], []
         self.configmaps, self.events = [], []
         self.logs: dict[tuple[str, bool], str] = {}
+        self.patches: list = []
+        self.field_managers: list = []
 
     def cluster(self) -> Cluster:
         return Cluster(core=_Core(self), apps=_Apps(self), discovery=_Discovery(self))

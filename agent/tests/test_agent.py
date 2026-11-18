@@ -191,3 +191,19 @@ async def test_a_stopped_run_marks_the_root_span_as_an_error(spans):
     root = next(s for s in exporter.get_finished_spans() if s.name == "diagnose")
     assert root.status.status_code.name == "ERROR"
     assert root.attributes["diagnoster.stop_reason"] == "tool_call_limit"
+
+
+async def test_after_runs_inside_the_root_span_with_the_report(spans):
+    provider, exporter = spans
+    seen = []
+    tracer = provider.get_tracer("test")
+
+    def after(report):
+        with tracer.start_as_current_span("remediate"):
+            seen.append(report.status)
+
+    model = scripted(("list_pods", {"namespace": "catalog"}), ("final", answer("tc_1")))
+    await run(model, tracer_provider=provider, after=after)
+    finished = {s.name: s for s in exporter.get_finished_spans()}
+    assert seen == ["complete"]
+    assert finished["remediate"].parent.span_id == finished["diagnose"].context.span_id
