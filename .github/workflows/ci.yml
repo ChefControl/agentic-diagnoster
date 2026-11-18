@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: # run by hand, e.g. for the cluster job while it is off
 
 jobs:
   # Fast checks with no cluster: lint, types, unit tests, production build.
@@ -43,7 +44,10 @@ jobs:
 
   # Proves the safety boundary holds and every failure scenario still
   # reproduces, using the same code the UI uses. No LLM involved.
+  # Off for now on pushes and PRs because it is slow (~1.5 min); run it from
+  # the Actions tab ("Run workflow") when needed.
   cluster:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: build
     steps:
