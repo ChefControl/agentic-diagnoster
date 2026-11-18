@@ -19,6 +19,9 @@ DEFAULT_FILE = _REPO_ROOT / "scenarios" / "categories.yaml"
 def load_categories(path: Path | str | None = None) -> dict[str, str]:
     """Category id -> description, in file order."""
     path = Path(path or os.environ.get("CATEGORIES_FILE") or DEFAULT_FILE)
+    if not path.is_file():
+        # The default only works from a checkout; a container sets CATEGORIES_FILE.
+        raise FileNotFoundError(f"categories file not found at {path}; set CATEGORIES_FILE to scenarios/categories.yaml")
     data = yaml.safe_load(path.read_text())
     return {c["id"]: c["description"] for c in data["categories"]}
 

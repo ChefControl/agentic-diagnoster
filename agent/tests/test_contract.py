@@ -2,6 +2,7 @@
 broken rule on its own."""
 
 import copy
+import json
 from pathlib import Path
 
 import pytest
@@ -53,8 +54,17 @@ def test_bad_probe_fix_mirrors_the_answer_key():
 
 
 def test_fix_serializes_with_the_json_key_from():
-    d = Diagnosis.model_validate(VALID["bad-probe"])
-    assert d.model_dump(by_alias=True)["next_action"]["proposed_fix"]["from"] == "/healthz"
+    # Graders and the UI read RunReport JSON, so "from" must survive a plain dump.
+    report = RunReport.model_validate({"status": "complete", "diagnosis": VALID["bad-probe"]})
+    fix = json.loads(report.model_dump_json())["diagnosis"]["next_action"]["proposed_fix"]
+    assert fix["from"] == "/healthz"
+    assert "from_" not in fix
+
+
+def test_the_model_sees_what_each_category_means():
+    schema = json.dumps(Diagnosis.model_json_schema())
+    for description in CATEGORIES.values():
+        assert description in schema
 
 
 def broken(scenario, change):
@@ -73,6 +83,9 @@ INVALID = {
     "remediate without a fix": broken("bad-probe", lambda d: d["next_action"].update(proposed_fix=None)),
     "fix without remediate": broken("bad-probe", lambda d: d["next_action"].update(kind="recommend")),
     "no fault but an action": broken("healthy", lambda d: d["next_action"].update(kind="recommend")),
+    "fault but no action": broken("selector-mismatch", lambda d: d["next_action"].update(kind="none")),
+    "fix that changes nothing": broken("bad-probe", lambda d: d["next_action"]["proposed_fix"].update(to="/healthz")),
+    "empty tool call id": broken("selector-mismatch", lambda d: d["evidence"][0].update(tool_call_ids=[""])),
     "no evidence": broken("selector-mismatch", lambda d: d.update(evidence=[])),
     "evidence citing no tool call": broken("selector-mismatch", lambda d: d["evidence"][0].update(tool_call_ids=[])),
     "unknown field": broken("selector-mismatch", lambda d: d.update(confidence=0.9)),
@@ -142,3 +155,9 @@ def test_categories_file_comes_from_the_environment(tmp_path, monkeypatch):
     other.write_text("categories:\n  - {id: only_one, description: The only category}\n")
     monkeypatch.setenv("CATEGORIES_FILE", str(other))
     assert load_categories() == {"only_one": "The only category"}
+
+
+def test_missing_categories_file_says_how_to_fix_it(tmp_path, monkeypatch):
+    monkeypatch.setenv("CATEGORIES_FILE", str(tmp_path / "nope.yaml"))
+    with pytest.raises(FileNotFoundError, match="CATEGORIES_FILE"):
+        load_categories()
