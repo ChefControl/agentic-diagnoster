@@ -1,4 +1,4 @@
-import { Activity, ArrowUpRight, Check, ChevronRight, Circle } from "lucide-react";
+import { Activity, ArrowUpRight, Check, ChevronRight, Circle, PenLine } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type {
   EvidenceFact,
@@ -15,6 +15,7 @@ const STATE_LABEL: Record<ScenarioState, string> = {
   absent: "Not deployed",
   settling: "Settling",
   reproduced: "Reproduced",
+  changed: "Changed",
 };
 
 // ---------------------------------------------------------------- routing
@@ -312,6 +313,24 @@ function ScenarioView({ summary, onChanged }: { summary: ScenarioSummary; onChan
 function Readiness({ status, error }: { status?: ScenarioStatus; error?: string }) {
   if (!status) return <p className="readiness muted">{error ?? "Checking the namespace…"}</p>;
   if (status.state === "absent") return <p className="readiness muted">Not deployed. Deploy it to investigate.</p>;
+  if (status.state === "changed") {
+    return (
+      <div className="readiness">
+        <p className="muted">Changed since deploy, so it is no longer the designed scenario. Reset to restore it.</p>
+        <ul className="checks changes">
+          {status.changes.map((c) => (
+            <li key={`${c.resource}${c.field}`}>
+              <PenLine className="check-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
+              <span>
+                <code>{c.resource}</code>, changed by <code>{c.by}</code>
+                <code className="changed-field">{c.field}</code>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   const waiting = status.checks.filter((c) => !c.pass);
   if (waiting.length === 0) {

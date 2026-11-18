@@ -319,6 +319,12 @@ details[open] > summary .disclosure {
   box-shadow: none;
 }
 
+/* Changed after deploy: neither broken as designed nor waiting, so neutral. */
+.state-changed {
+  background: var(--muted);
+  box-shadow: none;
+}
+
 /* ---------------------------------------------------------------- pages */
 
 .main {
@@ -362,6 +368,12 @@ details[open] > summary .disclosure {
 
 .fault-tag.tag-settling {
   box-shadow: inset 0 0 0 1px var(--hazard);
+  color: var(--ink);
+}
+
+.fault-tag.tag-changed {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
   color: var(--ink);
 }
 
@@ -611,6 +623,20 @@ details[open] > summary .disclosure {
 
 .check-icon {
   flex: none;
+}
+
+.changes li {
+  align-items: flex-start;
+}
+
+.changes .check-icon {
+  margin-top: 2px;
+}
+
+.changes .changed-field {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--ink);
 }
 
 /* ---------------------------------------------------------------- answer key */
