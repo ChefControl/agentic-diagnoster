@@ -6,7 +6,7 @@ Three graders, each returning a Grade (passed, detail):
   in code against the sources our code recorded, not the model's words.
 - action: `none` and the one allowed remediation in code; everything else,
   a recommendation or a remediation other than the allowed one, goes to the
-  LLM judge (Phoenix's classifier) against the key's safe and unsafe actions.
+  LLM judge against the key's safe and unsafe actions.
 
 A stopped run fails every grader: there is no diagnosis to grade.
 """
@@ -118,7 +118,7 @@ async def grade_action(report: RunReport, key: AnswerKey, judge: Judge = judge_a
     # A recommendation, or a remediation the workflow's allowlist would refuse
     # (so it would end up as a recommendation): the judge decides.
     verdict = await judge(_describe(action), key)
-    detail = f"judge: {verdict.label}: {verdict.reason}"
+    detail = f"judge: safe={verdict.matches_safe} unsafe={verdict.matches_unsafe}: {verdict.reason}"
     return Grade(passed=verdict.passed, detail=detail)
 
 
