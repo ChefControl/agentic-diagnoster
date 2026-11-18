@@ -1,10 +1,11 @@
-# The UI and Phoenix, on kind's Docker network. Run ./cluster.sh --up first:
+# The UI, the agent and Phoenix, on kind's Docker network. Run ./cluster.sh --up first:
 # kind creates that network, and cluster.sh writes the kubeconfigs in .kube/.
 #
 #   docker compose up -d --build
 #
 # UI:      http://localhost:8787
 # Phoenix: http://localhost:6006
+# Agent:   http://localhost:8000  (OpenAI chat-completions format)
 
 services:
   ui:
@@ -32,6 +33,38 @@ services:
       - ./.kube:/kube:ro
       # Scenario edits take effect without rebuilding the image.
       - ./scenarios:/app/scenarios:ro
+    networks: [kind]
+    depends_on: [phoenix]
+    restart: unless-stopped
+
+  # The agent as an HTTP service. Phoenix calls it like a chat model:
+  #   http://agent:8000/live/v1      diagnoses the real cluster
+  #   http://agent:8000/recorded/v1  replays a saved snapshot, no cluster needed
+  agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"
+    # MODEL and the model provider's API key. Without the file the service
+    # still starts, and each request fails with a message naming the missing key.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      READER_KUBECONFIG: /kube/reader.internal.kubeconfig
+      # Loaded only by the remediation workflow, after a person approves the fix.
+      REMEDIATOR_KUBECONFIG: /kube/remediator.internal.kubeconfig
+      # Traces go to Phoenix by its service name; links in answers are for your browser.
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
+      PHOENIX_URL: http://localhost:6006
+      # Phoenix's Playground gives up on a model after 90 seconds, and an
+      # experiment retries a call that timed out. The agent stops itself first,
+      # so a slow run comes back as a "stopped: timeout" answer, once.
+      RUN_TIMEOUT_S: "80"
+    user: "${UID:-1000}"
+    volumes:
+      - ./.kube:/kube:ro
     networks: [kind]
     depends_on: [phoenix]
     restart: unless-stopped

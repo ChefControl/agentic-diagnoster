@@ -1,6 +1,9 @@
 # Keep secrets, local state and build output out of every image.
 **/node_modules
 ui/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
 .kube
 **/.env*
 *.pdf
