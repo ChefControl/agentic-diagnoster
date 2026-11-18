@@ -1,0 +1,9 @@
+# Keep secrets, local state and build output out of every image.
+**/node_modules
+ui/dist
+.kube
+.env
+*.pdf
+.git
+.notes
+.claude

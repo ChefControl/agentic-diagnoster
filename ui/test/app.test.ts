@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/server/app.ts";
@@ -76,5 +78,22 @@ describe("API refuses other sites", () => {
   it("does not need the header to read", async () => {
     const res = await app.inject({ method: "GET", url: "/api/scenarios/bad-probe/spec" });
     expect(res.statusCode).toBe(200);
+  });
+});
+
+describe("Phoenix behind two URLs", () => {
+  it("checks the internal URL but returns the public one for the browser", async () => {
+    // A stand-in Phoenix that only the internal URL reaches.
+    const phoenix = createServer((req, res) => res.writeHead(req.url === "/healthz" ? 200 : 404).end());
+    await new Promise<void>((done) => phoenix.listen(0, "127.0.0.1", done));
+    const internal = `http://127.0.0.1:${(phoenix.address() as AddressInfo).port}`;
+    try {
+      // The public URL points nowhere, so "reachable" can only come from the internal one.
+      const twoUrls = buildApp({ service, phoenixUrl: "http://127.0.0.1:9", phoenixInternalUrl: internal });
+      const res = await twoUrls.inject({ method: "GET", url: "/api/phoenix" });
+      expect(res.json()).toEqual({ url: "http://127.0.0.1:9", reachable: true });
+    } finally {
+      phoenix.close();
+    }
   });
 });

@@ -7,6 +7,7 @@ const service = new ScenarioService(loadScenarios(config.scenariosDir), config.s
 const app = buildApp({
   service,
   phoenixUrl: config.phoenixUrl,
+  phoenixInternalUrl: config.phoenixInternalUrl,
   webDir: config.production ? config.webDir : undefined,
   logger: true,
 });

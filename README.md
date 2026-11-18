@@ -3,36 +3,33 @@
 An AI agent that investigates a local Kubernetes cluster, finds the root cause
 of an issue, backs it with evidence, and recommends the next action.
 
-> **Status:** the cluster, safety boundary, failure scenarios, the reviewer UI
-> and the chat are done. Next: the agent itself, its observability and evals,
-> and containers.
+> **Status:** the cluster, safety boundary, failure scenarios, the reviewer UI,
+> the chat and containers for the UI and Phoenix are done. Next: the agent
+> itself, its observability and evals, and its container.
 
 ## Prerequisites
 
-- Docker
+- Docker (with Compose)
 - [kind](https://kind.sigs.k8s.io/) (tested with v0.32.0)
 - kubectl
-- Node.js 22+ (for the UI, until it is containerized)
-- [Arize Phoenix](https://arize.com/docs/phoenix) for agent traces and eval
-  results (one Docker container, see below)
+- Node.js 22+, only to develop the UI (`npm run dev`)
 
 ## Quick start
 
 ```bash
-./cluster.sh --up          # create the cluster and the safety boundary (~30s)
-cd ui && npm install
-npm run dev                # open http://localhost:5173
+./cluster.sh --up               # create the cluster and the safety boundary (~30s)
+docker compose up -d --build    # the UI and Phoenix
 ```
 
-Phoenix stores the agent's traces and eval experiments. Run it locally:
+Then open the UI at http://localhost:8787. [Arize Phoenix](https://arize.com/docs/phoenix),
+which stores the agent's traces and eval experiments, is at http://localhost:6006.
 
-```bash
-docker run -d --name phoenix -p 127.0.0.1:6006:6006 -p 127.0.0.1:4317:4317 \
-  -e PHOENIX_ENABLE_AUTH=false -e PHOENIX_TELEMETRY_ENABLED=false \
-  -v phoenix-data:/root/.phoenix arizephoenix/phoenix:21.1.0
-```
-
-Phoenix 21 turns on login by default, so local use sets `PHOENIX_ENABLE_AUTH=false`.
+Run `./cluster.sh --up` first: kind creates the `kind` Docker network that
+[compose.yaml](compose.yaml) joins, and the script writes the kubeconfigs the
+UI mounts from `.kube/` (read-only). Both ports listen on 127.0.0.1 only, and
+Phoenix has login turned off because it is a local, single-user setup. Its data
+lives in a Compose volume, so traces survive restarts; `docker compose down -v`
+deletes them.
 
 In the UI, **Ask the agent** is the chat and **Scenarios** lists every scenario
 with its injected fault. Deploy one and wait until it shows **Reproduced**:
@@ -182,7 +179,11 @@ The sidebar has two sections:
 Traces and eval results are not rebuilt in the UI: they live in Phoenix, which
 the sidebar links to.
 
+To work on the UI itself, run it from source instead. It uses port 8787 too, so
+stop the container first (`docker compose stop ui`); Phoenix keeps running.
+
 ```bash
+cd ui && npm install
 npm run dev         # API on :8787 and UI on :5173 with live reload
 npm test            # unit tests
 npm run typecheck
@@ -197,7 +198,13 @@ Configuration is environment-based:
 | `HOST` | `127.0.0.1` | API bind address |
 | `SCENARIO_MANAGER_KUBECONFIG` | `.kube/scenario-manager.kubeconfig` | the UI's cluster identity |
 | `SCENARIOS_DIR` | `scenarios/` | scenario definitions |
-| `PHOENIX_URL` | `http://localhost:6006` | where the UI links to traces and evals, and checks that Phoenix is up |
+| `PHOENIX_URL` | `http://localhost:6006` | where the browser opens traces and evals |
+| `PHOENIX_INTERNAL_URL` | `PHOENIX_URL` | where the API checks that Phoenix is up |
+
+Phoenix has two URLs because inside a container `localhost` is the container
+itself. Compose sets `PHOENIX_INTERNAL_URL=http://phoenix:6006` (the service
+name), while your browser still opens `http://localhost:6006`. Run from
+source, both are the same and you set neither.
 
 The kubeconfig is read on every request, so recreating the cluster needs no
 restart. If the cluster is down or the token expired, the UI says so and tells
@@ -247,6 +254,7 @@ No LLM is involved in either, so both are free and deterministic.
 
 ```
 cluster.sh                   the one script: --up / --down
+compose.yaml                 the UI and Phoenix as containers
 cluster/kind-config.yaml     kind cluster (node image pinned by digest)
 rbac/diagnoster-rbac.yaml    identities, roles, scenario namespaces, access rules
 scenarios/<name>/            manifest and answer key per scenario
