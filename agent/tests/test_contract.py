@@ -10,7 +10,7 @@ import yaml
 from pydantic import ValidationError
 
 from diagnoster.categories import CATEGORIES, Category, load_categories
-from diagnoster.contract import Diagnosis, RunReport, unknown_tool_call_ids
+from diagnoster.contract import Diagnosis, RunReport, ToolCall, unknown_tool_call_ids
 
 SCENARIOS = Path(__file__).resolve().parents[2] / "scenarios"
 
@@ -99,9 +99,23 @@ def test_rejects(case):
 
 
 TOOL_CALLS = [
-    {"id": "tc_1", "tool": "get_service", "args": {"namespace": "catalog", "name": "catalog"},
-     "source": {"kind": "Service", "name": "catalog", "aspect": "spec"}},
+    {"id": "tc_1", "provider_id": "call_abc", "tool": "get_service", "args": {"namespace": "catalog", "name": "catalog"},
+     "sources": [{"kind": "Service", "name": "catalog", "aspect": "spec"},
+                 {"kind": "Service", "name": "catalog", "aspect": "endpoints"}]},
 ]
+
+
+@pytest.mark.parametrize("sources", [[], [{"kind": "Pod", "name": "a-1", "aspect": "status"}],
+                                     [{"kind": "Pod", "name": f"a-{i}", "aspect": "logs"} for i in range(3)]])
+def test_tool_call_has_zero_one_or_many_sources(sources):
+    call = ToolCall.model_validate({"id": "tc_2", "tool": "list_pods", "args": {"namespace": "shop"}, "sources": sources})
+    assert len(call.sources) == len(sources)
+    assert call.provider_id is None
+
+
+def test_tool_call_rejects_the_old_single_source_field():
+    with pytest.raises(ValidationError):
+        ToolCall.model_validate({"id": "tc_1", "tool": "t", "args": {}, "source": {"kind": "Pod", "name": "a", "aspect": "logs"}})
 
 
 def test_complete_report():
