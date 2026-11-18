@@ -1,5 +1,10 @@
 // Types shared by the API server and the web UI.
 
+// The API refuses changes (POST, DELETE) without this header, which the UI
+// sends. Other sites' pages can't send it, so they can't make changes.
+export const REQUEST_HEADER = "x-requested-by";
+export const REQUEST_HEADER_VALUE = "agentic-diagnoster";
+
 export type ScenarioState =
   | "absent" // no workloads deployed
   | "settling" // deployed, not yet in its designed state

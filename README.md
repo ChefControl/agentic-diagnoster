@@ -139,6 +139,16 @@ the namespace, because its access rules belong to `cluster.sh`.
 TypeScript. The browser never talks to Kubernetes directly: the API does, as
 the `diagnoster-scenario-manager` identity.
 
+The API can change the cluster, so pages from other websites open in the same
+browser must not be able to use it:
+
+- It answers only requests addressed to `localhost`, `127.0.0.1` or `[::1]`.
+  This blocks DNS rebinding, where another site points its own domain at your
+  machine to read the responses.
+- Every change (deploy, reset, remove) must carry an `x-requested-by` header,
+  which the UI sends. A browser won't send a custom header to another site
+  unless that server allows it, and this one never does.
+
 The chat is [assistant-ui](https://www.assistant-ui.com), added through the
 shadcn CLI (`ui/components.json`): its components are copied into
 `ui/src/web/components/` and themed with our palette in
