@@ -86,7 +86,10 @@ def test_deployment_shows_probes_env_and_config_sources():
     assert "env DB_URL from ConfigMap checkout-config key db_url" in text
     assert "envFrom ConfigMap shared-config" in text
     assert "readinessProbe: httpGet path=/healthz port=80" in text
-    assert sources == [Source(kind="Deployment", name="payments-api", aspect="spec")]
+    assert sources == [
+        Source(kind="Deployment", name="payments-api", aspect="spec"),
+        Source(kind="Deployment", name="payments-api", aspect="status"),  # the ready count
+    ]
 
 
 def test_configmap_values_are_capped():

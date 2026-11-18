@@ -22,6 +22,8 @@ evidence:
     - fact: payments-api pods are running but not Ready
       any_of:
         - {kind: Pod, name: "payments-api-*", aspect: status}
+        # The Deployment's ready count (0 of 2) shows the same thing.
+        - {kind: Deployment, name: payments-api, aspect: status}
     - fact: readiness probe fails on /healthz with 404
       any_of:
         - {kind: Pod, name: "payments-api-*", aspect: events}
