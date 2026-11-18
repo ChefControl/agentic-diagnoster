@@ -87,7 +87,8 @@ class FakePhoenix(setup.Phoenix):
                 edges = []
                 for evaluator_name, e in self.evaluators.items():
                     inner = {"sourceCode": e["source"]} if "source" in e else {"promptVersion": self._saved_version(e["version"])}
-                    edges.append({"node": {"id": e["id"], "name": evaluator_name, "evaluator": inner}})
+                    mapping = e["input"]["inputMapping"]
+                    edges.append({"node": {"id": e["id"], "name": evaluator_name, "inputMapping": mapping, "evaluator": inner}})
                 return {"node": {"datasetEvaluators": {"edges": edges}}}
             case "sandboxProviders":
                 return {"sandboxProviders": [{"configs": [{"id": "sandbox1", "name": setup.SANDBOX}]}]}
@@ -244,3 +245,13 @@ def test_the_dataset_rows_are_valid_json():
     # The upload sends them as JSON; a stray non-JSON value (an enum, a Path) would fail only against the real Phoenix.
     for example in dataset.build_examples(setup.load_all()):
         assert json.loads(json.dumps(example)) == example
+
+
+def test_a_judge_reading_from_old_fields_is_replaced():
+    # Its prompt is the same, but the reference moved: the judge must read the new paths.
+    px = FakePhoenix()
+    run(px)
+    px.evaluators["action"]["input"]["inputMapping"] = {"literalMapping": {}, "pathMapping": {"fault": "reference.why"}}
+    said = run(px)
+    assert "evaluator  action: replaced" in said
+    assert px.evaluators["action"]["input"]["inputMapping"]["pathMapping"] == action.PATHS

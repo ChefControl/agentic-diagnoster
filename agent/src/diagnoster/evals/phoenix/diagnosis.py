@@ -43,14 +43,16 @@ def evaluate(output, reference):
     if diagnosis is None:
         return _result(False, f"run stopped ({report.get('stop_reason')}); nothing to grade")
     category, resource = diagnosis["root_cause"]["category"], diagnosis["root_cause"]["resource"]
+    expected = reference["diagnosis"]["root_cause"]["category"]
+    resources = reference["grading"]["resources"]
     problems = []
-    if category != reference["category"]:
-        problems.append(f"category {category}, expected {reference['category']}")
-    if not reference["resources"]:
+    if category != expected:
+        problems.append(f"category {category}, expected {expected}")
+    if not resources:
         if resource is not None:
             problems.append(f"named resource {resource}, expected none")
-    elif resource not in reference["resources"]:
-        problems.append(f"resource {resource}, expected one of {', '.join(reference['resources'])}")
+    elif resource not in resources:
+        problems.append(f"resource {resource}, expected one of {', '.join(resources)}")
     if problems:
         return _result(False, "; ".join(problems))
     return _result(True, f"{category} {resource or ''}".strip())

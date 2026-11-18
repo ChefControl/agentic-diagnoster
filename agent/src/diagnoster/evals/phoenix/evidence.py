@@ -61,11 +61,12 @@ def evaluate(output, reference):
         return _result(False, f"cites calls that never happened: {', '.join(sorted(unknown))}")
     cited = [call for call in report["tool_calls"] if call["id"] in cited_ids]
     lines, missing = [], 0
-    for fact in reference["required_evidence"]:
+    grading = reference["grading"]
+    for fact in grading["required_evidence"]:
         by = _backed(fact, cited)
         missing += by is None
         lines.append(f"{'ok' if by else 'MISSING'}: {fact['fact']}" + (f" ({by})" if by else ""))
-    for fact in reference.get("supporting_evidence", []):
+    for fact in grading.get("supporting_evidence", []):
         by = _backed(fact, cited)
         lines.append(f"supporting {'ok' if by else 'absent'}: {fact['fact']}" + (f" ({by})" if by else ""))
     return _result(missing == 0, "\n".join(lines))

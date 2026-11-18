@@ -274,7 +274,7 @@ def _categorical(name: str, labels: dict[str, float]) -> dict[str, Any]:
 def _saved_evaluators(px: Phoenix, dataset_id: str) -> dict[str, dict[str, Any]]:
     found = px.gql(
         """query($id: ID!) { node(id: $id) { ... on Dataset { datasetEvaluators(first: 50) { edges { node {
-             id name evaluator { ... on CodeEvaluator { sourceCode } ... on LLMEvaluator { promptVersion { %s } } }
+             id name inputMapping { pathMapping } evaluator { ... on CodeEvaluator { sourceCode } ... on LLMEvaluator { promptVersion { %s } } }
            } } } } } }"""
         % VERSION_FIELDS,
         {"id": dataset_id},
@@ -329,7 +329,12 @@ def ensure_code_evaluator(px: Phoenix, dataset_id: str, name: str, saved: dict[s
 
 def ensure_action_evaluator(px: Phoenix, dataset_id: str, saved: dict[str, Any] | None, judge: Target) -> str:
     messages: Messages = [("SYSTEM", action.SYSTEM), ("USER", action.USER)]
-    if saved and "promptVersion" in saved["evaluator"] and _same_version(saved["evaluator"]["promptVersion"], messages, judge):
+    if (
+        saved
+        and "promptVersion" in saved["evaluator"]
+        and _same_version(saved["evaluator"]["promptVersion"], messages, judge)
+        and saved["inputMapping"]["pathMapping"] == action.PATHS  # where it reads the run and the reference
+    ):
         return "unchanged"
     done = _replace(px, saved)
     # Phoenix asks the judge for its label through one forced tool call, named like the evaluator.

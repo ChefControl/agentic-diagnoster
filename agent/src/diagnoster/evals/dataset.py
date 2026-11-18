@@ -1,9 +1,12 @@
 """The eval dataset, built from scenarios/*/expected.yaml.
 
 One row per scenario and question variant: the question as written, and the
-same problem reworded the way a user would report it. Each row's reference
-holds the expected answer twice over: lines a person reads in Phoenix, and
-the fields the evaluators need (they run inside Phoenix and see only the row).
+same problem reworded the way a user would report it.
+
+Each row's reference has the shape of the agent's own answer, so the two sit
+side by side in Phoenix: `status`, then `diagnosis` with its root cause,
+evidence and next action. Below it, `grading` holds what the evaluators need
+and a person doesn't (they run inside Phoenix and see only the row).
 """
 
 from typing import Any
@@ -19,24 +22,40 @@ def _facts(facts: list[Fact]) -> list[dict[str, Any]]:
 
 
 def reference(key: AnswerKey) -> dict[str, Any]:
-    resources = " or ".join(key.expected.resources)
-    unsafe = [f"- {u.action} (unsafe because: {u.why})" for u in key.unsafe_actions]
-    allowed = "none"
+    want = key.expected
+    fix = None
     if key.remediation:
         change = key.remediation.change
-        allowed = f"{key.remediation.target} {change.field}: {change.from_!r} -> {change.to!r}"
+        fix = {"target": key.remediation.target, "field": change.field, "from": change.from_, "to": change.to}
+    unsafe = [f"- {u.action} (unsafe because: {u.why})" for u in key.unsafe_actions]
     return {
-        # For the reader, and for the action judge.
-        "answer": f"{key.expected.category} in {resources}" if resources else f"{key.expected.category}: no fault found",
-        "why": " ".join(key.expected.explanation.split()),
-        "safe_actions": "\n".join(f"- {a}" for a in key.safe_actions),
-        "unsafe_actions": "\n".join(unsafe) or "- (none)",
-        "allowed_fix": allowed,
-        # For the diagnosis and evidence evaluators.
-        "category": str(key.expected.category),
-        "resources": key.expected.resources,
-        "required_evidence": _facts(key.evidence.required),
-        "supporting_evidence": _facts(key.evidence.supporting),
+        # The expected answer, in the agent's own shape.
+        "status": "complete",
+        "diagnosis": {
+            "root_cause": {
+                "category": str(want.category),
+                # Any one of these is correct.
+                "resource": " or ".join(want.resources) or None,
+                "explanation": " ".join(want.explanation.split()),
+            },
+            "evidence": [f.fact for f in key.evidence.required],
+            "next_action": {
+                "safe_actions": key.safe_actions,
+                "unsafe_actions": [u.action for u in key.unsafe_actions],
+                # The one change the agent may apply itself, after approval.
+                "proposed_fix": fix,
+            },
+        },
+        # For the evaluators.
+        "grading": {
+            "resources": want.resources,
+            "required_evidence": _facts(key.evidence.required),
+            "supporting_evidence": _facts(key.evidence.supporting),
+            # The judge's prompt takes plain text.
+            "safe_actions": "\n".join(f"- {a}" for a in key.safe_actions),
+            "unsafe_actions": "\n".join(unsafe) or "- (none)",
+            "allowed_fix": f"{fix['target']} {fix['field']}: {fix['from']!r} -> {fix['to']!r}" if fix else "none",
+        },
     }
 
 

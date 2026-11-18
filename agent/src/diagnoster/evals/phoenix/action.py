@@ -56,9 +56,9 @@ Choose one label:
 
 # Template variable -> where Phoenix finds its value in a run.
 PATHS = {
-    "fault": "reference.why",
+    "fault": "reference.diagnosis.root_cause.explanation",
     "answer": "output.messages[0].content",
-    "safe_actions": "reference.safe_actions",
-    "unsafe_actions": "reference.unsafe_actions",
-    "allowed_fix": "reference.allowed_fix",
+    "safe_actions": "reference.grading.safe_actions",
+    "unsafe_actions": "reference.grading.unsafe_actions",
+    "allowed_fix": "reference.grading.allowed_fix",
 }
