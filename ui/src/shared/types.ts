@@ -1,5 +1,10 @@
 // Types shared by the API server and the web UI.
 
+// The API refuses changes (POST, DELETE) without this header, which the UI
+// sends. Other sites' pages can't send it, so they can't make changes.
+export const REQUEST_HEADER = "x-requested-by";
+export const REQUEST_HEADER_VALUE = "agentic-diagnoster";
+
 export type ScenarioState =
   | "absent" // no workloads deployed
   | "settling" // deployed, not yet in its designed state
@@ -91,6 +96,11 @@ export interface ScenarioSpec {
     change: { field: string; from: string; to: string };
     verify: string[];
   } | null;
+}
+
+export interface PhoenixStatus {
+  url: string | null; // null when PHOENIX_URL is not configured
+  reachable: boolean;
 }
 
 export interface ClusterHealth {
