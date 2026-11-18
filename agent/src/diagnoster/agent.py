@@ -6,6 +6,7 @@ and a RunReport that always comes back, finished or stopped.
 """
 
 import logging
+from collections.abc import Callable
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -85,8 +86,13 @@ async def diagnose(
     *,
     model: Model | str | None = None,
     tracer_provider: TracerProvider | None = None,
+    after: Callable[[RunReport], None] | None = None,
 ) -> RunReport:
-    """Run the agent once. Never raises for a failed run: it returns a stopped report."""
+    """Run the agent once. Never raises for a failed run: it returns a stopped report.
+
+    `after` runs inside the root span once the report exists, so whatever it
+    does (the remediation workflow) lands in the same trace as the run.
+    """
     tracer = (tracer_provider or trace.get_tracer_provider()).get_tracer("diagnoster")
     agent = build_agent(settings, model)
     deps = RunDeps(cluster=cluster)
@@ -114,4 +120,6 @@ async def diagnose(
             span.set_attribute("diagnoster.stop_reason", report.stop_reason)
         span.set_attribute("output.value", report.model_dump_json())
         span.set_attribute("output.mime_type", "application/json")
+        if after is not None:
+            after(report)
     return report
