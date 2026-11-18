@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ClusterHealth, PhoenixStatus, ScenarioSpec, ScenarioStatus, ScenarioSummary } from "../shared/types.ts";
+import {
+  type ClusterHealth,
+  type PhoenixStatus,
+  REQUEST_HEADER,
+  REQUEST_HEADER_VALUE,
+  type ScenarioSpec,
+  type ScenarioStatus,
+  type ScenarioSummary,
+} from "../shared/types.ts";
 
+// Sent on every call; the API requires it on changes (see app.ts).
 async function call<T>(method: string, path: string): Promise<T> {
-  const res = await fetch(path, { method });
+  const res = await fetch(path, { method, headers: { [REQUEST_HEADER]: REQUEST_HEADER_VALUE } });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
   return body as T;
