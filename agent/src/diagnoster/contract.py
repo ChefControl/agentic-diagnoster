@@ -7,8 +7,9 @@ Two objects, with different authors:
   diagnosis if it did, every tool call that really happened, and the trace id.
 
 The report is the answer; the trace is the story. Evidence cites tool-call ids
-only, never sources: our code derives each call's source (which Kubernetes
-object, which aspect) from its arguments, so the model can't vouch for itself.
+only, never sources: our code records each call's sources (which Kubernetes
+objects, which aspect) from its arguments and result, so the model can't vouch
+for itself.
 """
 
 from typing import Annotated, Any, Literal
@@ -113,10 +114,13 @@ class Source(_Strict):
 
 
 class ToolCall(_Strict):
-    id: ToolCallId
+    id: ToolCallId  # ours: "tc_1", "tc_2", ... in call order; the model cites these
+    provider_id: str | None = None  # the model provider's own id for the call, for matching traces
     tool: str
     args: dict[str, Any]
-    source: Source | None = None  # None when the call looked at no single object
+    # Every object the call looked at. Empty when it looked at none (e.g. a
+    # list of names); several when it read many pods at once.
+    sources: list[Source] = []
 
 
 StopReason = Literal["request_limit", "tool_call_limit", "timeout", "invalid_output", "model_error"]
