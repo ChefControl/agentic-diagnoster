@@ -203,6 +203,73 @@ The kubeconfig is read on every request, so recreating the cluster needs no
 restart. If the cluster is down or the token expired, the UI says so and tells
 you to run `./cluster.sh --up`.
 
+## Agent
+
+[agent/](agent/) is Python 3.12 on [PydanticAI](https://ai.pydantic.dev),
+managed with [uv](https://docs.astral.sh/uv/). So far it holds the **output
+contract** and its tests; the investigation loop, tools and tracing come next.
+
+```bash
+cd agent && uv run pytest
+```
+
+### Why PydanticAI
+
+Each requirement of this agent maps to a built-in feature, so we write the
+investigation and not the plumbing:
+
+| Need | PydanticAI |
+|---|---|
+| A structured answer, checked before we accept it | `output_type=Diagnosis`; a malformed answer goes back to the model to fix |
+| A stopping condition, so it can't loop forever | `UsageLimits` (requests, tool calls), plus our own timeout |
+| Pause for approval before the one fix | deferred tools |
+| Traces in Phoenix | OpenTelemetry built in; Phoenix lists PydanticAI as an integration |
+| Choose the model by config | `provider:model` strings, OpenRouter and Anthropic included |
+
+Considered and rejected:
+
+- **A plain SDK loop**: the same result with more code of our own (retries,
+  limits, output checks).
+- **Deep Agents, Claude Agent SDK**: harnesses for long tasks that come with
+  shell and file tools. That is the opposite of our read-only safety story.
+- **LangGraph**: a graph runtime for many-step workflows; one loop doesn't
+  need it.
+- **Mastra**: TypeScript, and its own evals and tracing would compete with Phoenix.
+
+### The contract
+
+[agent/src/diagnoster/contract.py](agent/src/diagnoster/contract.py) defines
+two objects with different authors:
+
+- **`Diagnosis`**, written by the model:
+  - root cause: a category from [scenarios/categories.yaml](scenarios/categories.yaml),
+    the faulty resource as `kind/name`, and a short explanation;
+  - evidence: each fact cites the ids of the tool calls that showed it;
+  - next action: `none`, `recommend` or `remediate`, with the exact change
+    when it's `remediate`.
+- **`RunReport`**, written by our code around the run: `complete` or
+  `stopped` (and why), the diagnosis, every tool call that really happened,
+  and the trace id.
+
+The report is the answer; the trace is the story. Evidence cites tool-call ids
+only: our code derives what each call looked at (which object, which aspect)
+from its arguments, so the model can't vouch for its own evidence. The graders
+then check each required fact against those real calls.
+
+The contract rejects answers that contradict themselves: a fault without a
+resource, "no fault" with a resource or an action, `remediate` without a fix,
+or evidence citing no tool call.
+
+The category list is read from `scenarios/categories.yaml` (or
+`CATEGORIES_FILE`), the same file the answer keys use, so they can't drift apart.
+
+### Model
+
+Chosen by configuration, defaulting to a cheap model through OpenRouter
+(`openrouter:openai/gpt-6-luna`), with the Claude API as an option
+(`anthropic:claude-haiku-5-5`). The choice will be revisited once the evals
+can compare models.
+
 ## Safety boundary
 
 Nothing in this project uses your admin kubeconfig after `--up`. Three
@@ -232,16 +299,17 @@ change). Each identity gets two:
 
 ## CI
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs two jobs:
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs three jobs:
 
 - **build:** shellcheck on `cluster.sh`, then type-check, unit tests and a
   production build of the UI. No cluster needed.
+- **agent:** the agent's unit tests (`uv run pytest`). No model calls.
 - **cluster:** `./cluster.sh --up` (which verifies all permissions), deploys
   every scenario through the same TypeScript code the UI uses, waits until each
   reproduces, checks that reset restores the broken state, and confirms the
   agent's identity can't read Secrets.
 
-No LLM is involved in either, so both are free and deterministic.
+No LLM is involved in any of them, so they are free and deterministic.
 
 ## Repository layout
 
@@ -251,6 +319,7 @@ cluster/kind-config.yaml     kind cluster (node image pinned by digest)
 rbac/diagnoster-rbac.yaml    identities, roles, scenario namespaces, access rules
 scenarios/<name>/            manifest and answer key per scenario
 ui/                          the UI and its API
+agent/                       the agent (Python)
 ```
 
 ## Notes

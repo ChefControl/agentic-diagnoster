@@ -27,6 +27,20 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # The agent's own unit tests. No model calls, so no API key needed.
+  agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: agent/uv.lock
+      - run: uv run --locked pytest
+
   # Proves the safety boundary holds and every failure scenario still
   # reproduces, using the same code the UI uses. No LLM involved.
   cluster:
