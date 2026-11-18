@@ -6,6 +6,9 @@ namespace: inventory
 title: "Healthy control"
 fault: "Nothing is broken: the agent should report that no fault was found"
 question: "Is anything wrong with inventory in namespace inventory?"
+# The same problem as a real user would report it: symptoms only, no
+# Kubernetes names. Evals run both questions and report them separately.
+reworded: "Is the inventory system okay?"
 expected:
   category: none # one of scenarios/categories.yaml
   resources: [] # no faulty resource

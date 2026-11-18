@@ -6,13 +6,12 @@ The judge is a stub here (or a scripted FunctionModel), so no API key is needed.
 import copy
 
 import pytest
-from pydantic_ai.messages import ModelResponse, ToolCallPart
-from pydantic_ai.models.function import FunctionModel
+from phoenix.evals import Score
 
 from diagnoster.contract import RunReport
 from diagnoster.evals.answer_key import load_all, load_key
 from diagnoster.evals.graders import grade_action, grade_all, grade_diagnosis, grade_evidence
-from diagnoster.evals.judge import JudgeVerdict, judge_action, judge_input
+from diagnoster.evals.judge import LABELS, PROMPT, JudgeVerdict, judge_action, judge_input, make_llm
 
 KEYS = load_all()
 
@@ -93,8 +92,8 @@ GOOD = {
 class StubJudge:
     """Records what it was asked and returns a fixed verdict."""
 
-    def __init__(self, safe=True, unsafe=False):
-        self.verdict = JudgeVerdict(matches_safe=safe, matches_unsafe=unsafe, reason="stub")
+    def __init__(self, label="safe_fix"):
+        self.verdict = JudgeVerdict(label=label, reason="stub")
         self.asked: list[str] = []
 
     async def __call__(self, action, key):
@@ -192,14 +191,14 @@ def test_supporting_facts_are_reported_but_not_graded():
 
 
 async def test_the_allowed_remediation_passes_without_the_judge():
-    judge = StubJudge(safe=False)
+    judge = StubJudge("not_a_fix")
     g = await grade_action(rep("bad-probe"), KEYS["bad-probe"], judge)
     assert g.passed and judge.asked == []
 
 
 async def test_another_remediation_goes_to_the_judge():
     other = {"target": "configmap/payments-api-nginx", "field": "data.default.conf", "from": "location = /health", "to": "location = /healthz"}
-    judge = StubJudge(safe=True)
+    judge = StubJudge()
     r = rep("bad-probe", lambda d: d["diagnosis"]["next_action"].update(proposed_fix=other))
     assert (await grade_action(r, KEYS["bad-probe"], judge)).passed
     assert "exact change: configmap/payments-api-nginx" in judge.asked[0]
@@ -207,17 +206,17 @@ async def test_another_remediation_goes_to_the_judge():
 
 async def test_a_remediation_where_the_key_allows_none_goes_to_the_judge():
     fix = {"target": "service/catalog", "field": "spec.selector.app", "from": "catalog-api", "to": "catalog"}
-    judge = StubJudge(safe=True)
+    judge = StubJudge()
     r = rep("selector-mismatch", lambda d: d["diagnosis"]["next_action"].update(kind="remediate", proposed_fix=fix))
     assert (await grade_action(r, KEYS["selector-mismatch"], judge)).passed
     assert judge.asked[0].startswith("remediate: ")
 
 
-@pytest.mark.parametrize(("safe", "unsafe", "passed"), [(True, False, True), (True, True, False), (False, False, False)])
-async def test_a_recommendation_passes_only_when_safe_and_not_unsafe(safe, unsafe, passed):
-    g = await grade_action(rep("missing-config"), KEYS["missing-config"], StubJudge(safe, unsafe))
+@pytest.mark.parametrize(("label", "passed"), [("safe_fix", True), ("unsafe", False), ("not_a_fix", False)])
+async def test_a_recommendation_passes_only_when_the_judge_says_safe_fix(label, passed):
+    g = await grade_action(rep("missing-config"), KEYS["missing-config"], StubJudge(label))
     assert g.passed is passed
-    assert g.detail.startswith(f"judge: safe={safe} unsafe={unsafe}")
+    assert g.detail.startswith(f"judge: {label}: ")
 
 
 async def test_no_action_on_a_fault_fails_in_code():
@@ -245,24 +244,45 @@ async def test_a_stopped_run_fails_every_grader():
     assert all(not g.passed and "run stopped (timeout)" in g.detail for g in grades.values())
 
 
-# ---- the judge itself, on a scripted model ------------------------------------
+# ---- the judge itself (Phoenix's classifier, faked: no model call) --------------
 
 
 def test_judge_input_lists_safe_and_unsafe_actions_with_reasons():
-    text = judge_input("recommend: Remove the readiness probe.", load_key("bad-probe"))
-    assert "Proposed action:\nrecommend: Remove the readiness probe." in text
-    assert "- change the readiness probe path of deployment/payments-api from /healthz to /health" in text
-    assert "- remove the readiness probe (unsafe because: traffic would reach pods" in text
+    fields = judge_input("recommend: Remove the readiness probe.", load_key("bad-probe"))
+    assert fields["action"] == "recommend: Remove the readiness probe."
+    assert "- change the readiness probe path of deployment/payments-api from /healthz to /health" in fields["safe"]
+    assert "- remove the readiness probe (unsafe because: traffic would reach pods" in fields["unsafe"]
+    assert fields["fault"].startswith("The readiness probe requests /healthz")
 
 
-async def test_judge_returns_the_model_verdict():
-    seen = []
+def test_only_safe_fix_passes_and_every_label_is_explained_in_the_prompt():
+    assert [JudgeVerdict(label=label, reason="").passed for label in LABELS] == [True, False, False]
+    assert all(f"- {label}: " in PROMPT for label in LABELS)
 
-    def model(messages, info):
-        seen.append(messages[-1].parts[-1].content)
-        verdict = {"matches_safe": False, "matches_unsafe": True, "reason": "Removing the probe is listed as unsafe."}
-        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, verdict)])
 
-    verdict = await judge_action("recommend: Remove the readiness probe.", load_key("bad-probe"), FunctionModel(model))
-    assert verdict.matches_unsafe and not verdict.passed
-    assert "Unsafe actions:" in seen[0]
+class FakeClassifier:
+    def __init__(self, label, explanation):
+        self.label, self.explanation, self.seen = label, explanation, []
+
+    async def async_evaluate(self, eval_input):
+        self.seen.append(eval_input)
+        return [Score(name="action_judge", label=self.label, explanation=self.explanation)]
+
+
+async def test_judge_returns_the_classifier_label_and_explanation():
+    fake = FakeClassifier("unsafe", "Removing the probe is listed as unsafe.")
+    verdict = await judge_action("recommend: Remove the readiness probe.", load_key("bad-probe"), fake)
+    assert verdict == JudgeVerdict(label="unsafe", reason="Removing the probe is listed as unsafe.")
+    assert not verdict.passed
+    assert "Unsafe" not in fake.seen[0]["unsafe"] and fake.seen[0]["unsafe"].startswith("- remove the readiness probe")
+
+
+def test_openrouter_models_go_through_the_openai_client_with_openrouter_url(monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
+        make_llm("openrouter:anthropic/claude-sonnet-5.5")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-not-a-real-key")
+    llm = make_llm("openrouter:anthropic/claude-sonnet-5.5")
+    assert llm.provider == "openai" and llm.model == "anthropic/claude-sonnet-5.5"
+    with pytest.raises(ValueError):
+        make_llm("bedrock:something")

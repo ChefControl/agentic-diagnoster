@@ -6,6 +6,9 @@ namespace: catalog
 title: "Selector mismatch"
 fault: "Service catalog selects app=catalog-api, but the catalog pods are labeled app=catalog"
 question: "The storefront in namespace catalog can't reach the catalog service. Why?"
+# The same problem as a real user would report it: symptoms only, no
+# Kubernetes names. Evals run both questions and report them separately.
+reworded: "The store shows no products."
 expected:
   category: selector_mismatch # one of scenarios/categories.yaml
   resources: [service/catalog] # naming any one of these is correct
