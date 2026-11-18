@@ -19,7 +19,12 @@
     "types": [
       "node",
       "vite/client"
-    ]
+    ],
+    "paths": {
+      "@/*": [
+        "./src/web/*"
+      ]
+    }
   },
   "include": [
     "src",

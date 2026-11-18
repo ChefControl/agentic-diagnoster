@@ -1,0 +1,5 @@
+# Components copied in by the shadcn CLI from shadcn and assistant-ui.
+# Marked generated so GitHub collapses them in diffs; they are still reviewed
+# code we own and may edit (thread.aui.tsx has local changes).
+ui/src/web/components/** linguist-generated=true
+ui/src/web/hooks/** linguist-generated=true

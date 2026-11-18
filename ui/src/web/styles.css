@@ -589,6 +589,26 @@ details[open] > summary .disclosure {
   border-color: var(--muted);
 }
 
+/* ---------------------------------------------------------------- ask the agent */
+
+/* The chat fills the main area below the top bar; the thread scrolls inside. */
+.main:has(.agent-chat) {
+  max-width: none;
+  padding: 0;
+}
+
+.agent-chat {
+  height: calc(100vh - 57px);
+}
+
+.agent-welcome {
+  margin-bottom: 24px;
+}
+
+.ask-row {
+  margin-top: 24px;
+}
+
 /* ---------------------------------------------------------------- readiness */
 
 .readiness {

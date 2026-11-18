@@ -1,4 +1,4 @@
-import { Activity, ArrowUpRight, Check, ChevronRight, Circle, PenLine } from "lucide-react";
+import { Activity, ArrowUpRight, Check, ChevronRight, Circle, MessageSquare, PenLine } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type {
   EvidenceFact,
@@ -9,6 +9,7 @@ import type {
   ScenarioStatus,
   ScenarioSummary,
 } from "../shared/types.ts";
+import { AgentChat } from "./AgentChat.tsx";
 import { api, usePoll } from "./client.ts";
 
 const STATE_LABEL: Record<ScenarioState, string> = {
@@ -21,16 +22,21 @@ const STATE_LABEL: Record<ScenarioState, string> = {
 // ---------------------------------------------------------------- routing
 
 // Hash routes keep every view linkable:
-//   #/ or #/scenarios      every scenario (reviewer)
+//   #/ or #/agent?q=...    Ask the agent (the user-facing product), optionally prefilled
+//   #/scenarios            every scenario (reviewer)
 //   #/scenarios/<id>       one scenario and its answer key (reviewer)
-type Route = { page: "scenarios" } | { page: "scenario"; id: string };
+type Route = { page: "agent"; question: string } | { page: "scenarios" } | { page: "scenario"; id: string };
 
 function parseHash(hash: string): Route {
-  const scenario = /^#\/scenarios\/([\w-]+)$/.exec(hash);
-  return scenario?.[1] ? { page: "scenario", id: scenario[1] } : { page: "scenarios" };
+  const [path = "", query = ""] = hash.replace(/^#/, "").split("?");
+  const scenario = /^\/scenarios\/([\w-]+)$/.exec(path);
+  if (scenario?.[1]) return { page: "scenario", id: scenario[1] };
+  if (path === "/scenarios") return { page: "scenarios" };
+  return { page: "agent", question: new URLSearchParams(query).get("q") ?? "" };
 }
 
 const scenarioHref = (id: string) => `#/scenarios/${id}`;
+const agentHref = (question?: string) => (question ? `#/agent?q=${encodeURIComponent(question)}` : "#/agent");
 
 function useRoute(): Route {
   const [route, setRoute] = useState(() => parseHash(window.location.hash));
@@ -74,6 +80,10 @@ export function App() {
 
       <div className="layout">
         <nav className="sidebar" aria-label="Main">
+          <a className="nav-row nav-page" href={agentHref()} aria-current={route.page === "agent" ? "page" : undefined}>
+            <MessageSquare className="nav-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
+            Ask the agent
+          </a>
 
           {/* The label opens the scenarios page; the arrow only folds the list. */}
           <div
@@ -124,7 +134,9 @@ export function App() {
         </nav>
 
         <main className="main">
-          {route.page === "scenarios" ? (
+          {route.page === "agent" ? (
+            <AgentChat key={route.question} question={route.question} examples={scenarios.map((s) => s.question)} />
+          ) : route.page === "scenarios" ? (
             list.data ? (
               <OverviewView scenarios={scenarios} onChanged={list.refresh} />
             ) : (
@@ -227,7 +239,7 @@ function OverviewView({ scenarios, onChanged }: { scenarios: ScenarioSummary[]; 
     <div className="overview">
       <h1 className="page-title">Scenarios</h1>
       <p className="page-note">
-        Deploy a scenario and wait until it reproduces. Its page shows the injected fault and the answer key.
+        Deploy a scenario, then ask the agent about it and compare its answer with the scenario's answer key.
       </p>
       <table className="grid-table overview-table">
         <thead>
@@ -302,6 +314,13 @@ function ScenarioView({ summary, onChanged }: { summary: ScenarioSummary; onChan
       </p>
       <Readiness status={status.data} error={status.error} />
 
+      {state === "reproduced" && (
+        <div className="actions ask-row">
+          <a className="btn btn-primary" href={agentHref(summary.question)}>
+            Ask the agent about it
+          </a>
+        </div>
+      )}
 
       <AnswerKey spec={spec.data} error={spec.error} />
     </article>
