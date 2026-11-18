@@ -1,0 +1,28 @@
+# Root-cause categories. The agent receives this list and must pick exactly one.
+# It is deliberately wider than the four scenarios, so picking the category is a
+# real decision and not a lookup. Each scenario's expected.yaml names one of these.
+categories:
+  - id: missing_config
+    description: A config value the app needs (env var, ConfigMap key, Secret key) is missing or misnamed
+  - id: bad_probe
+    description: A liveness, readiness or startup probe is misconfigured (path, port, timing)
+  - id: selector_mismatch
+    description: A Service or controller selector does not match the labels of the pods it should select
+  - id: image_pull
+    description: The container image cannot be pulled (wrong name or tag, missing registry credentials)
+  - id: resource_limits
+    description: The container is OOMKilled or starved because its memory or CPU limits are too low
+  - id: scheduling
+    description: Pods cannot be scheduled (insufficient capacity, taints, affinity, quota)
+  - id: network_policy
+    description: A NetworkPolicy blocks traffic between workloads
+  - id: rbac
+    description: The workload's ServiceAccount lacks a permission it needs
+  - id: dependency_down
+    description: An upstream dependency (database, external API) is unavailable while the workload itself is configured correctly
+  - id: app_bug
+    description: The application fails with a valid configuration and healthy dependencies
+  - id: none
+    description: No fault found; everything is working as intended
+  - id: other
+    description: A fault that fits none of the categories above

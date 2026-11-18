@@ -6,26 +6,57 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  # Fast checks with no cluster: lint, types, unit tests.
+  build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
       - name: Lint cluster.sh
+        working-directory: .
         run: shellcheck cluster.sh
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
 
-  # Proves the safety boundary holds: cluster.sh --up checks every
-  # permission with the API server and fails on any surprise.
+  # Proves the safety boundary holds and every failure scenario still
+  # reproduces, using the same code the scenario CLI uses. No LLM involved.
   cluster:
     runs-on: ubuntu-latest
-    needs: lint
+    needs: build
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
       - name: Install kind
         run: |
           curl -fsSLo kind https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64
           chmod +x kind && sudo mv kind /usr/local/bin/kind
       - name: Create cluster and verify permissions
         run: ./cluster.sh --up
+      - run: npm ci
+        working-directory: ui
+      - name: Deploy every scenario as the UI's identity
+        working-directory: ui
+        run: npm run scenarios -- deploy all
+      - name: Check every scenario reproduced
+        working-directory: ui
+        run: npm run scenarios -- check all --wait 180
+      - name: Reset restores the broken state
+        working-directory: ui
+        run: |
+          npm run scenarios -- reset bad-probe
+          npm run scenarios -- check bad-probe --wait 120
       - name: Agent reader cannot read Secrets
         run: "! kubectl --kubeconfig .kube/reader.kubeconfig -n shop get secrets"
       - name: Dump cluster state
