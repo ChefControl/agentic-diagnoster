@@ -3,7 +3,8 @@
 export type ScenarioState =
   | "absent" // no workloads deployed
   | "settling" // deployed, not yet in its designed state
-  | "reproduced"; // every check passes: ready to investigate
+  | "reproduced" // every check passes: ready to investigate
+  | "changed"; // someone changed it after deploy (e.g. the agent's approved fix): reset to restore
 
 export interface ScenarioSummary {
   id: string;
@@ -38,11 +39,19 @@ export interface EventSummary {
   lastSeen: string | null;
 }
 
+// A deployed field that someone other than the scenario tooling has changed.
+export interface FieldChange {
+  resource: string; // e.g. deployment/payments-api
+  field: string; // e.g. .spec.template.spec.containers[name="api"].readinessProbe.httpGet.path
+  by: string; // the field manager that changed it, e.g. kubectl-patch
+}
+
 export interface ScenarioStatus {
   id: string;
   namespace: string;
   state: ScenarioState;
   checks: CheckResult[];
+  changes: FieldChange[];
   pods: PodSummary[];
   events: EventSummary[];
 }

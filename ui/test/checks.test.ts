@@ -95,13 +95,48 @@ describe("scenario state", () => {
     expect(verdict("selector-mismatch", { ...s, endpointSlices: [slice("catalog", [true])] })).toBe("settling");
   });
 
-  it("healthy reproduces only when everything works", () => {
+  describe("healthy", () => {
     const s = snapshot({
       deployments: [deployment("inventory", 2, 2), deployment("inventory-sync", 1, 1)],
+      pods: [
+        pod("inventory-a", "inventory", { ready: true }),
+        pod("inventory-b", "inventory", { ready: true }),
+        pod("inventory-sync-a", "inventory-sync", { ready: true }),
+      ],
       endpointSlices: [slice("inventory", [true, true])],
       logs: { "inventory-sync": "sync ok" },
     });
-    expect(verdict("healthy", s)).toBe("reproduced");
-    expect(verdict("healthy", { ...s, logs: { "inventory-sync": "ERROR: sync failed" } })).toBe("settling");
+
+    it("reproduces only when everything works", () => {
+      expect(verdict("healthy", s)).toBe("reproduced");
+      expect(verdict("healthy", { ...s, logs: { "inventory-sync": "ERROR: sync failed" } })).toBe("settling");
+    });
+
+    it("is not reproduced once a container has restarted, since the answer key grades no restarts", () => {
+      const restarted = { ...s, pods: [...s.pods.slice(0, 2), pod("inventory-sync-a", "inventory-sync", { ready: true, restarts: 1 })] };
+      expect(verdict("healthy", restarted)).toBe("settling");
+    });
+  });
+
+  describe("changed after deploy", () => {
+    const change = { resource: "deployment/payments-api", field: ".spec.template.spec.containers[name=\"api\"].readinessProbe.httpGet.path", by: "kubectl-patch" };
+    const reproduced = snapshot({
+      deployments: [deployment("catalog", 2, 2), deployment("storefront", 1, 1)],
+      endpointSlices: [slice("catalog", [])],
+      logs: { storefront: "ERROR: GET http://catalog/ failed" },
+    });
+
+    it("wins over passing checks: the scenario is no longer the designed one", () => {
+      expect(stateOf(reproduced, runChecks("selector-mismatch", reproduced), [change])).toBe("changed");
+    });
+
+    it("wins over failing checks, so a fixed scenario never looks like one still starting", () => {
+      const fixed = { ...reproduced, endpointSlices: [slice("catalog", [true, true])] };
+      expect(stateOf(fixed, runChecks("selector-mismatch", fixed), [change])).toBe("changed");
+    });
+
+    it("does not apply when nothing is deployed", () => {
+      expect(stateOf(snapshot({}), [], [change])).toBe("absent");
+    });
   });
 });

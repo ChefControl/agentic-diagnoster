@@ -1,5 +1,5 @@
 import type { CoreV1Event, V1Deployment, V1EndpointSlice, V1Pod } from "@kubernetes/client-node";
-import type { CheckResult, ScenarioState } from "../shared/types.ts";
+import type { CheckResult, FieldChange, ScenarioState } from "../shared/types.ts";
 
 // What the checks look at: one read of a scenario namespace.
 export interface Snapshot {
@@ -118,6 +118,11 @@ export const SCENARIO_CHECKS: Record<string, ScenarioChecks> = {
         pass: (s) => available(s, "inventory") && available(s, "inventory-sync"),
       },
       {
+        // The answer key grades "no restarts", so the designed state must guarantee it.
+        label: "no inventory container has restarted",
+        pass: (s) => [...podsOf(s, "inventory"), ...podsOf(s, "inventory-sync")].every((p) => restarts(p) === 0),
+      },
+      {
         label: "Service inventory has ready endpoints",
         pass: (s) => endpointAddresses(s, "inventory", true).length > 0,
       },
@@ -139,7 +144,10 @@ export function runChecks(id: string, snapshot: Snapshot): CheckResult[] {
   return checksFor(id).checks.map((c) => ({ label: c.label, pass: c.pass(snapshot) }));
 }
 
-export function stateOf(snapshot: Snapshot, results: CheckResult[]): ScenarioState {
+// A change made after deploy wins over the checks: whether or not the checks
+// still pass, the scenario is no longer the one that was designed.
+export function stateOf(snapshot: Snapshot, results: CheckResult[], changes: FieldChange[] = []): ScenarioState {
   if (snapshot.deployments.length === 0) return "absent";
+  if (changes.length > 0) return "changed";
   return results.every((r) => r.pass) ? "reproduced" : "settling";
 }

@@ -9,7 +9,7 @@ import {
   PatchStrategy,
   type CoreV1Event,
 } from "@kubernetes/client-node";
-import type { EventSummary, PodSummary } from "../shared/types.ts";
+import type { EventSummary, FieldChange, PodSummary } from "../shared/types.ts";
 import type { Snapshot } from "./checks.ts";
 import type { Scenario } from "./scenarios.ts";
 
@@ -49,6 +49,23 @@ export class ScenarioCluster {
     for (const obj of scenario.objects) {
       await this.objects.patch(obj, undefined, undefined, FIELD_MANAGER, true, PatchStrategy.ServerSideApply);
     }
+  }
+
+  // What changed since deploy. Server-side apply records who manages each
+  // field; when someone else (the agent's approved fix, a manual kubectl
+  // edit) changes a field we deployed, a dry-run apply without force reports
+  // a conflict naming that field and who changed it. Nothing is modified.
+  async changes(scenario: Scenario): Promise<FieldChange[]> {
+    const found: FieldChange[] = [];
+    for (const obj of scenario.objects) {
+      try {
+        await this.objects.patch(obj, undefined, "All", FIELD_MANAGER, false, PatchStrategy.ServerSideApply);
+      } catch (err) {
+        if (!(err instanceof ApiException) || err.code !== 409) throw err;
+        found.push(...fieldConflicts(`${obj.kind?.toLowerCase()}/${obj.metadata?.name}`, err.body));
+      }
+    }
+    return found;
   }
 
   // Delete the scenario's workloads but keep the namespace: its access rules
@@ -151,6 +168,29 @@ export function summarizeEvents(events: CoreV1Event[], limit = 12): EventSummary
       count: e.count ?? 1,
       lastSeen: when(e).toISOString(),
     }));
+}
+
+// The fields of a server-side apply conflict (a 409 Status), e.g.
+// { field: '.spec...httpGet.path', message: 'conflict with "kubectl-patch" using apps/v1' }.
+export function fieldConflicts(resource: string, body: unknown): FieldChange[] {
+  const status = (typeof body === "string" ? safeJson(body) : body) as {
+    details?: { causes?: { field?: string; message?: string }[] };
+  } | null;
+  const causes = status?.details?.causes ?? [];
+  if (causes.length === 0) return [{ resource, field: "(unknown field)", by: "unknown" }];
+  return causes.map((c) => ({
+    resource,
+    field: c.field ?? "(unknown field)",
+    by: /conflict with "([^"]+)"/.exec(c.message ?? "")?.[1] ?? "unknown",
+  }));
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 // Turn low-level connection failures into one actionable message.
