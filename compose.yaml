@@ -4,7 +4,7 @@
 #   docker compose up -d --build
 #
 # UI:      http://localhost:8787
-# Phoenix: http://localhost:6006
+# Phoenix: http://localhost:6006  (traces, and the evals: see phoenix-setup)
 # Agent:   http://localhost:8000  (OpenAI chat-completions format)
 
 services:
@@ -69,8 +69,41 @@ services:
     depends_on: [phoenix]
     restart: unless-stopped
 
+  # Runs once after Phoenix starts and puts the evals into it: the agent as two
+  # models in the Playground, the eval dataset, the three evaluators, and the
+  # agent's prompt. Safe to run again: `docker compose up phoenix-setup`.
+  # The image is the agent's; only this service sees the answer keys.
+  phoenix-setup:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    command: ["phoenix-setup"]
+    # OPENROUTER_API_KEY, which Phoenix's judge uses. Without it, everything
+    # but the action evaluator is set up.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PHOENIX_INTERNAL_URL: http://phoenix:6006
+      PHOENIX_URL: http://localhost:6006
+      AGENT_URL_FOR_PHOENIX: http://agent:8000
+    user: "${UID:-1000}"
+    volumes:
+      - ./scenarios:/app/scenarios:ro
+    networks: [kind]
+    depends_on:
+      phoenix:
+        condition: service_healthy
+    restart: "no"
+
   phoenix:
     image: arizephoenix/phoenix:21.1.0
+    # The image has no shell or curl, but it has Python.
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
     environment:
       # Phoenix 21 asks for a login by default; this is a local, single-user setup.
       PHOENIX_ENABLE_AUTH: "false"
