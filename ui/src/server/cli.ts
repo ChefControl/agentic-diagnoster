@@ -29,6 +29,7 @@ async function check(id: string): Promise<boolean> {
 
   console.log(`${id} (namespace ${status.namespace}): ${status.state}`);
   for (const c of status.checks) console.log(`  ${c.pass ? green("✓") : red("✗")} ${c.label}`);
+  for (const c of status.changes) console.log(`  ${red("changed")} ${c.resource} ${c.field} (by ${c.by})`);
   return status.state === "reproduced";
 }
 
