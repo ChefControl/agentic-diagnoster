@@ -158,6 +158,20 @@ async def test_a_model_error_stops_with_model_error():
     assert report.stop_reason == "model_error"
 
 
+async def test_a_model_error_can_be_raised_instead_of_reported():
+    # For callers that must tell "no answer" (a rate limit, an outage) from a wrong answer.
+    def broken(messages, info):
+        raise RuntimeError("429 rate limited")
+
+    with pytest.raises(RuntimeError, match="429"):
+        await run(FunctionModel(broken), raise_model_errors=True)
+
+
+async def test_a_limit_is_still_reported_when_model_errors_are_raised():
+    report = await run(FunctionModel(loop_forever), Settings(namespaces=("catalog",), tool_calls_limit=1), raise_model_errors=True)
+    assert report.stop_reason == "tool_call_limit"
+
+
 @pytest.fixture
 def spans():
     exporter = InMemorySpanExporter()

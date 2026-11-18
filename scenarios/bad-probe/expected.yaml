@@ -6,6 +6,9 @@ namespace: payments
 title: "Bad readiness probe"
 fault: "The readiness probe checks /healthz, but payments-api serves its health check on /health"
 question: "payments-api in namespace payments is not receiving any traffic. What's wrong?"
+# The same problem as a real user would report it: symptoms only, no
+# Kubernetes names. Evals run both questions and report them separately.
+reworded: "Customers say card payments aren't going through."
 expected:
   category: bad_probe # one of scenarios/categories.yaml
   resources: [deployment/payments-api] # naming any one of these is correct
@@ -19,6 +22,8 @@ evidence:
     - fact: payments-api pods are running but not Ready
       any_of:
         - {kind: Pod, name: "payments-api-*", aspect: status}
+        # The Deployment's ready count (0 of 2) shows the same thing.
+        - {kind: Deployment, name: payments-api, aspect: status}
     - fact: readiness probe fails on /healthz with 404
       any_of:
         - {kind: Pod, name: "payments-api-*", aspect: events}

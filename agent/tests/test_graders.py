@@ -177,6 +177,25 @@ def test_evidence_needs_the_right_aspect():
     assert not g.passed and "MISSING: payments-api pods are running but not Ready" in g.detail
 
 
+def test_the_deployment_ready_count_also_backs_pods_not_ready():
+    # The agent cites get_deployment (0 of 2 ready) instead of list_pods for "pods are not Ready".
+    def cite_deployment(d):
+        d["tool_calls"][0] = call(
+            "tc_1", "get_deployment", ("Deployment", "payments-api", "spec"), ("Deployment", "payments-api", "status"),
+            namespace="payments", name="payments-api",
+        )
+
+    g = grade_evidence(rep("bad-probe", cite_deployment), KEYS["bad-probe"])
+    assert g.passed and "ok: payments-api pods are running but not Ready (tc_1)" in g.detail
+
+
+def test_a_deployment_spec_alone_does_not_back_pods_not_ready():
+    def spec_only(d):
+        d["tool_calls"][0]["sources"] = [{"kind": "Deployment", "name": "payments-api", "aspect": "spec"}]
+
+    assert not grade_evidence(rep("bad-probe", spec_only), KEYS["bad-probe"]).passed
+
+
 def test_evidence_fails_on_a_cited_call_that_never_happened():
     r = rep("healthy", lambda d: d["diagnosis"]["evidence"][0]["tool_call_ids"].append("tc_9"))
     g = grade_evidence(r, KEYS["healthy"])

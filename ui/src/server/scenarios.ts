@@ -11,6 +11,7 @@ export interface Scenario {
   title: string;
   namespace: string;
   question: string; // the only part the agent ever sees
+  reworded: string; // the same problem in a user's words, for evals
   remediable: boolean;
   spec: ScenarioSpec; // the white box, for the reviewer and the evals
   objects: KubernetesObject[];
@@ -27,6 +28,7 @@ interface ExpectedFile {
   title: string;
   fault: string;
   question: string;
+  reworded: string;
   expected: { category: string; resources: string[]; explanation: string };
   evidence: { required: FactEntry[]; supporting?: FactEntry[] };
   safe_actions: string[];
@@ -86,6 +88,7 @@ function loadScenario(path: string, id: string, categories: Map<string, string>)
     title: expected.title,
     namespace: expected.namespace,
     question: expected.question,
+    reworded: expected.reworded,
     remediable: expected.remediation !== undefined,
     spec: {
       fault: expected.fault,

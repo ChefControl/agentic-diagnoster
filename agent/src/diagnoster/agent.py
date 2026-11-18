@@ -87,11 +87,16 @@ async def diagnose(
     model: Model | str | None = None,
     tracer_provider: TracerProvider | None = None,
     after: Callable[[RunReport], None] | None = None,
+    raise_model_errors: bool = False,
 ) -> RunReport:
     """Run the agent once. Never raises for a failed run: it returns a stopped report.
 
     `after` runs inside the root span once the report exists, so whatever it
     does (the remediation workflow) lands in the same trace as the run.
+
+    `raise_model_errors` is for evals: a rate limit or provider outage is then
+    raised instead of reported, so it counts as a run that never happened, not
+    as a wrong answer.
     """
     tracer = (tracer_provider or trace.get_tracer_provider()).get_tracer("diagnoster")
     agent = build_agent(settings, model)
@@ -104,6 +109,7 @@ async def diagnose(
         span.set_attribute("openinference.span.kind", "CHAIN")
         span.set_attribute("input.value", question)
         span.set_attribute("diagnoster.model", str(model or settings.model))
+        model_error: Exception | None = None
         try:
             result = await agent.run(question, deps=deps, usage_limits=limits, timeout=settings.run_timeout_s)
             report = RunReport(status="complete", diagnosis=result.output, tool_calls=deps.recorder.calls, trace_id=trace_id)
@@ -111,7 +117,9 @@ async def diagnose(
         except Exception as error:  # noqa: BLE001 - a run always ends in a report
             reason = _stop_reason(error)
             if reason == "model_error":
-                log.warning("run stopped by %s: %s", type(error).__name__, error)
+                model_error = error
+                if not raise_model_errors:
+                    log.warning("run stopped by %s: %s", type(error).__name__, error)
             report = RunReport(status="stopped", stop_reason=reason, tool_calls=deps.recorder.calls, trace_id=trace_id)
             span.record_exception(error)
             span.set_status(Status(StatusCode.ERROR, f"{reason}: {error}"))
@@ -120,6 +128,8 @@ async def diagnose(
             span.set_attribute("diagnoster.stop_reason", report.stop_reason)
         span.set_attribute("output.value", report.model_dump_json())
         span.set_attribute("output.mime_type", "application/json")
+        if model_error is not None and raise_model_errors:
+            raise model_error
         if after is not None:
             after(report)
     return report

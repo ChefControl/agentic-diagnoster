@@ -297,7 +297,8 @@ def get_deployment(c: Cluster, ns: str, name: str) -> Result:
     for vol in tpl.spec.volumes or []:
         if vol.config_map:
             lines.append(f"volume {vol.name}: ConfigMap {vol.config_map.name}")
-    return "\n".join(lines), [Source(kind="Deployment", name=name, aspect="spec")]
+    # The first line reports ready replicas, which is the Deployment's status, not its spec.
+    return "\n".join(lines), [Source(kind="Deployment", name=name, aspect="spec"), Source(kind="Deployment", name=name, aspect="status")]
 
 
 def get_configmap(c: Cluster, ns: str, name: str) -> Result:

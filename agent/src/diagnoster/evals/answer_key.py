@@ -59,6 +59,7 @@ class AnswerKey(_Key):
     scenario: str
     namespace: str
     question: str
+    reworded: str  # the same problem in a user's words, no Kubernetes names
     expected: Expected
     evidence: Evidence
     safe_actions: list[str]

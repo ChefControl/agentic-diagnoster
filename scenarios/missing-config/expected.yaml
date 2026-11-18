@@ -6,6 +6,9 @@ namespace: shop
 title: "Missing config"
 fault: "checkout reads DATABASE_URL, but its ConfigMap only defines DB_URL"
 question: "Checkout in namespace shop is unhealthy. Why?"
+# The same problem as a real user would report it: symptoms only, no
+# Kubernetes names. Evals run both questions and report them separately.
+reworded: "Checkout keeps failing for everyone."
 expected:
   category: missing_config # one of scenarios/categories.yaml
   # Naming any one of these is correct: the fix can go in either.

@@ -25,6 +25,22 @@ describe("scenario definitions", () => {
     }
   });
 
+  // A reworded question sounds like a user: business words are fine ("payments",
+  // "checkout"), but no Kubernetes identifiers and no words that name the fault.
+  // Otherwise the realism check would quietly hand the agent the answer.
+  const K8S_WORDS = ["namespace", "pod", "deployment", "configmap", "replicaset", "probe", "readiness",
+    "liveness", "selector", "label", "endpoint", "container", "kubectl", "env"];
+
+  it.each(scenarios)("$id has a reworded question that leaks no identifiers or fault words", (s) => {
+    const words = new Set(s.reworded.toLowerCase().match(/[a-z0-9-]+/g) ?? []);
+    const technicalNames = s.objects.map((o) => o.metadata?.name ?? "").filter((n) => n.includes("-"));
+    const faultWords = [...s.id.split("-"), ...s.spec.category.split("_")].filter((w) => w !== "bad" && w !== "none");
+    const banned = [...K8S_WORDS, ...technicalNames, ...faultWords];
+    expect(s.reworded.length).toBeGreaterThan(10);
+    for (const b of banned) expect([...words].some((w) => w.startsWith(b)), `"${s.reworded}" contains "${b}"`).toBe(false);
+    expect(s.reworded).not.toBe(s.question);
+  });
+
   it.each(scenarios)("$id has checks and an answer key", (s) => {
     expect(SCENARIO_CHECKS[s.id]?.checks.length).toBeGreaterThan(0);
     expect(categories).toContain(s.spec.category);
