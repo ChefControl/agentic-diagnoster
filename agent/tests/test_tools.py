@@ -41,7 +41,7 @@ def test_list_pods_shows_state_and_labels_with_one_source_per_pod():
 def test_service_without_endpoints_shows_the_mismatch():
     text, sources = tools.get_service(selector_mismatch_world().cluster(), "catalog", "catalog")
     assert "selector: app=catalog-api" in text
-    assert "pods matching the selector: 0" in text
+    assert "matching" not in text  # the model compares the selector with pod labels itself
     assert "ready endpoints: none" in text
     assert sources == [Source(kind="Service", name="catalog", aspect="spec"), Source(kind="Service", name="catalog", aspect="endpoints")]
 

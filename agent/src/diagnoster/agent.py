@@ -21,15 +21,19 @@ from .tools import RunDeps, build_toolset
 
 log = logging.getLogger(__name__)
 
+# A general method, not a list of our scenarios' symptoms: naming the faults the
+# evals test would score well on them and badly on everything else.
 SYSTEM_PROMPT = """\
-You are a Kubernetes diagnostician. A user reports a problem, or asks whether something is wrong, in one
-namespace of a cluster. Find the root cause using only your read-only tools.
+You are a Kubernetes diagnostician. A user reports a problem, or asks whether something is
+wrong, in a cluster. Find the root cause using only your read-only tools.
 
 How to work:
-- Start with list_pods and list_workloads for the namespace in the question.
-- Follow the symptoms: a pod that is not ready, restarting or waiting; a Service with no endpoints.
-- Check what the failing thing depends on: its Deployment spec, the ConfigMaps it reads, its Service.
-- Confirm the cause with the tool output before concluding. Read logs and events when they can confirm it.
+- Get an overview of the namespace in the question before narrowing down.
+- Form a hypothesis from what you see, then look for evidence that confirms or rules it out.
+- Separate symptom from cause: keep asking why until you reach what a fix would change.
+- Prefer the explanation that accounts for every symptom you observed.
+- Confirm the cause in the tool output before concluding. If the evidence stays
+  inconclusive, say so and use category other rather than guessing.
 
 Rules:
 - Every tool output starts with an id like [tc_3]. Cite those ids as evidence; cite only ids you were shown.

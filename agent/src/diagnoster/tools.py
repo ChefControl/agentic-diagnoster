@@ -235,12 +235,10 @@ def get_service(c: Cluster, ns: str, name: str) -> Result:
             if ep.conditions is None or ep.conditions.ready:
                 target = ep.target_ref.name if ep.target_ref else "?"
                 ready.extend(f"{addr} ({target})" for addr in ep.addresses or [])
-    matching = len(c.core.list_namespaced_pod(ns, label_selector=_selector(selector)).items) if selector else 0
     text = "\n".join(
         [
             f"Service {name}: type={svc.spec.type}  ports={ports or 'none'}",
             f"selector: {_labels(selector)}",
-            f"pods matching the selector: {matching}",
             f"ready endpoints: {', '.join(ready) if ready else 'none'}",
         ]
     )
@@ -351,7 +349,7 @@ def build_toolset(namespaces: tuple[str, ...]) -> FunctionToolset[RunDeps]:
 
     @tools.tool(name="get_service")
     def get_service_tool(ctx: RunContext[RunDeps], namespace: Namespace, name: str) -> str:  # type: ignore[valid-type]
-        """A Service's selector and ports, its ready endpoints, and how many pods match its selector."""
+        """A Service's selector, ports and ready endpoints."""
         args = {"namespace": namespace, "name": name}
         return _run(ctx, "get_service", args, lambda: get_service(ctx.deps.cluster, namespace, name))
 
