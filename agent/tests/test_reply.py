@@ -43,7 +43,7 @@ def report_in(text: str) -> RunReport:
 
 
 def test_the_summary_reads_top_down_and_names_the_cited_calls():
-    text = render(COMPLETE, "openrouter:openai/gpt-6-luna", "http://localhost:6006")
+    text = render(COMPLETE, "openai:gpt-6-luna", "http://localhost:6006")
     summary = text[: text.rindex("```json")]
     assert summary.splitlines()[:2] == [
         "**Root cause**: bad_probe in deployment/payments-api",
@@ -53,7 +53,7 @@ def test_the_summary_reads_top_down_and_names_the_cited_calls():
     assert "tc_2 get_events(namespace=payments); tc_1 get_deployment(" in summary  # a None argument is left out
     assert "**Next action** (remediate): Point the probe at /health." in summary
     assert "Proposed fix: deployment/payments-api readinessProbe.httpGet.path: '/healthz' -> '/health'" in summary
-    assert "Model: openrouter:openai/gpt-6-luna" in summary
+    assert "Model: openai:gpt-6-luna" in summary
     assert "Trace: http://localhost:6006/redirects/traces/0af7651916cd43dd8448eb211c80319c" in summary
 
 

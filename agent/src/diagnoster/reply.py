@@ -35,8 +35,10 @@ def _summary(report: RunReport) -> list[str]:
     return lines
 
 
-def render(report: RunReport, model: str, phoenix_url: str) -> str:
+def render(report: RunReport, model: str, phoenix_url: str, cluster: str | None = None) -> str:
     lines = _summary(report) + ["", f"Model: {model}"]
+    if cluster:
+        lines.append(f"Cluster: {cluster}")
     if report.trace_id:
         lines.append(f"Trace: {phoenix_url}/redirects/traces/{report.trace_id}")
     lines += ["", "```json", report.model_dump_json(indent=2), "```"]
