@@ -126,12 +126,9 @@ def build_agent(
 
 def _stop_reason(error: Exception) -> StopReason:
     if isinstance(error, UsageLimitExceeded):
-        message = str(error)
-        if "tool_calls_limit" in message:
+        if "tool_calls_limit" in str(error):
             return "tool_call_limit"
-        if "tokens_limit" in message:
-            return "token_limit"
-        return "request_limit"
+        return "token_limit" if "tokens_limit" in str(error) else "request_limit"
     if isinstance(error, RunTimedOut):
         return "timeout"
     if isinstance(error, UnexpectedModelBehavior):
@@ -208,7 +205,7 @@ async def _drive(
     limits = UsageLimits(
         request_limit=settings.request_limit,
         tool_calls_limit=settings.tool_calls_limit,
-        total_tokens_limit=settings.tokens_limit,
+        total_tokens_limit=settings.total_tokens_limit,
     )
     while True:
         result = await agent.run(

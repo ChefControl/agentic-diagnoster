@@ -127,7 +127,7 @@ async def test_citing_an_unknown_id_makes_the_model_retry():
     [
         (Settings(namespaces=("catalog",), request_limit=3, tool_calls_limit=50), "request_limit"),
         (Settings(namespaces=("catalog",), request_limit=50, tool_calls_limit=2), "tool_call_limit"),
-        (Settings(namespaces=("catalog",), request_limit=50, tool_calls_limit=50, tokens_limit=600), "token_limit"),
+        (Settings(namespaces=("catalog",), request_limit=50, tool_calls_limit=50, total_tokens_limit=600), "token_limit"),
     ],
 )
 async def test_each_limit_stops_the_run_with_its_reason(settings, reason):
@@ -327,3 +327,8 @@ async def test_a_remediate_answer_must_offer_the_fix_first():
     report = await run(FunctionModel(model), fixer=never_fix)
     assert "call apply_fix with this diagnosis" in told[0]
     assert report.status == "complete" and report.remediation.status == "not_asked"
+
+
+async def test_a_run_that_uses_too_many_tokens_stops_with_token_limit():
+    report = await run(FunctionModel(loop_forever), Settings(namespaces=("catalog",), total_tokens_limit=300))
+    assert report.status == "stopped" and report.stop_reason == "token_limit"
