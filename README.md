@@ -12,7 +12,7 @@ docker compose up -d            # UI, agent, Phoenix (pulls the published images
 
 UI: http://localhost:8787 · Phoenix: http://localhost:6006 · Agent: http://localhost:8000
 
-`docker compose up -d --build` builds the images from your checkout instead. On Linux, run Compose as `UID=$(id -u) docker compose up -d`.
+The UI and agent images are prebuilt and published by CI, so there's nothing to build. On Linux, run Compose as `UID=$(id -u) docker compose up -d`.
 
 ## Reproduce the failure scenarios
 
