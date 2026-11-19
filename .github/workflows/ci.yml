@@ -111,10 +111,13 @@ jobs:
               - ui/src/server/**
               - ui/package.json
               - ui/package-lock.json
+              - agent/src/diagnoster/remediation.py
+              - agent/src/diagnoster/cluster.py
               - .github/workflows/ci.yml
 
-  # Proves the safety boundary holds and every failure scenario still
-  # reproduces, using the same code the UI uses. No LLM involved.
+  # Proves the safety boundary holds, every failure scenario still reproduces
+  # (with the same code the UI uses), and the one fix really applies and
+  # verifies as the remediator. No LLM involved.
   # Always on main and when run by hand; on a PR, only when `changes` says so.
   cluster:
     needs: [build, changes]
@@ -127,9 +130,14 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: ui/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: agent/uv.lock
       - name: Install kind
         run: |
           curl -fsSLo kind https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64
+          echo "50030de23cf40a18505f20426f6a8506bedf13c6e509244bd1fa9463721b0f54  kind" | sha256sum -c -
           chmod +x kind && sudo mv kind /usr/local/bin/kind
       - name: Create cluster and verify permissions
         run: ./cluster.sh --up
@@ -141,13 +149,50 @@ jobs:
       - name: Check every scenario reproduced
         working-directory: ui
         run: npm run scenarios -- check all --wait 180
+      # RBAC lets the remediator patch payments-api; the admission policy lets
+      # that patch touch only the readiness probe path. Server-side dry runs:
+      # admission runs, nothing is stored.
+      - name: The remediator may change the probe path and nothing else
+        run: |
+          r() { kubectl --kubeconfig .kube/remediator.kubeconfig -n payments patch deployment payments-api --dry-run=server -p "$1"; }
+          r '{"spec":{"template":{"spec":{"containers":[{"name":"api","readinessProbe":{"httpGet":{"path":"/health"}}}]}}}}'
+          for change in \
+            '{"spec":{"template":{"spec":{"containers":[{"name":"api","image":"busybox:1.36"}]}}}}' \
+            '{"spec":{"template":{"spec":{"containers":[{"name":"api","readinessProbe":{"httpGet":{"port":80}}}]}}}}' \
+            '{"spec":{"template":{"spec":{"hostNetwork":true}}}}' \
+            '{"metadata":{"labels":{"owner":"agent"}}}'; do
+            if out=$(r "$change" 2>&1); then echo "allowed, should be denied: $change"; exit 1; fi
+            echo "$out" | grep -q diagnoster-remediator-probe-path-only || { echo "denied for another reason: $out"; exit 1; }
+          done
+      - name: The approved fix applies and verifies with fresh reads
+        working-directory: agent
+        run: |
+          uv run --locked python - <<'PY'
+          from pathlib import Path
+          from diagnoster.cluster import connect
+          from diagnoster.contract import Diagnosis
+          from diagnoster.remediation import fix
+
+          kube = Path("../.kube")
+          diagnosis = Diagnosis.model_validate({
+              "root_cause": {"category": "bad_probe", "resource": "deployment/payments-api", "explanation": "CI"},
+              "evidence": [{"fact": "CI", "tool_call_ids": ["tc_1"]}],
+              "next_action": {"summary": "CI", "kind": "remediate", "proposed_fix": {
+                  "target": "deployment/payments-api", "field": "readinessProbe.httpGet.path", "from": "/healthz", "to": "/health"}},
+          })
+          outcome = fix(diagnosis, remediator=lambda: connect(kube / "remediator.kubeconfig"), reader=lambda: connect(kube / "reader.kubeconfig"))
+          print(outcome.status, outcome.detail)
+          assert outcome.status == "fixed", outcome
+          PY
       - name: Reset restores the broken state
         working-directory: ui
         run: |
           npm run scenarios -- reset bad-probe
           npm run scenarios -- check bad-probe --wait 120
       - name: Agent reader cannot read Secrets
-        run: "! kubectl --kubeconfig .kube/reader.kubeconfig -n shop get secrets"
+        run: |
+          if out=$(kubectl --kubeconfig .kube/reader.kubeconfig -n shop get secrets 2>&1); then echo "the reader read Secrets"; exit 1; fi
+          echo "$out" | grep -q Forbidden || { echo "failed for another reason: $out"; exit 1; }
       - name: Dump cluster state
         if: failure()
         run: kubectl --context kind-diagnoster get all,events -A

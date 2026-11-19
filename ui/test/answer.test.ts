@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentRun } from "../src/shared/types.ts";
+import type { AgentRemediation, AgentRun } from "../src/shared/types.ts";
 import { categoryLabel, citedCalls, describeCall, headline, modelName, remediationText } from "../src/web/answer.ts";
 import { MAX_CHATS, remember, type StoredChat } from "../src/web/chats.ts";
 
@@ -58,9 +58,10 @@ describe("the answer in plain words", () => {
 
 describe("what became of the fix", () => {
   it("says it plainly, and why there was no button on the recorded cluster", () => {
-    const rem = (status: "fixed" | "denied" | "not_asked") => ({ status, detail: "", fix: null, expected_effect: null });
+    const rem = (status: AgentRemediation["status"]) => ({ status, detail: "", fix: null, expected_effect: null });
     expect(remediationText(rem("fixed"), "live")).toBe("Fix applied, and it works.");
     expect(remediationText(rem("denied"), "live")).toContain("Nothing was changed");
+    expect(remediationText(rem("failed"), "live")).toBe("Nothing was changed: the change couldn't be made.");
     expect(remediationText(rem("not_asked"), "recorded")).toBe("Fix not available: the agent is reading the recorded cluster.");
   });
 });

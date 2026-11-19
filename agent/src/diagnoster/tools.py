@@ -5,12 +5,17 @@ Poka-yoke: each tool is hard to call wrongly.
 - An unknown name returns a message listing the names that exist, so the model
   can correct itself; no exception reaches the model.
 - Output is short, plain text with the facts a diagnosis needs, trimmed.
+- Values under a credential-like name (password, token, API key...) are
+  masked: tool output goes to the model's provider and into the traces.
+- A rejected token (401) stops the run instead of reaching the model, which
+  would otherwise diagnose its own expired credentials as a cluster fault.
 
 Every call is recorded by our code: an id (tc_N) the model cites as evidence,
 and the sources (which objects, which aspect) the call looked at. The output
 starts with its id, so the model sees exactly what to cite.
 """
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -27,6 +32,8 @@ LOG_LINES = 50
 MAX_LINE_CHARS = 300
 MAX_EVENTS = 20
 MAX_VALUE_CHARS = 2000
+# Env var and ConfigMap key names whose values are masked.
+SENSITIVE_NAME = re.compile(r"pass(word|wd)?|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|credential", re.IGNORECASE)
 
 
 @dataclass
@@ -59,6 +66,18 @@ class NotFound(Exception):
     """A name the model asked for doesn't exist; the message lists what does."""
 
 
+class ClusterAuthError(Exception):
+    """The API server rejected the agent's token. Stops the run: no tool can work."""
+
+
+AUTH_HINT = "The cluster rejected the agent's token (401 Unauthorized). Tokens last 24 h: run ./cluster.sh --up to issue fresh ones."
+
+
+def _masked(name: str, value: str) -> str | None:
+    """The value to show in place of a sensitive one, or None to show it as it is."""
+    return f"(masked: {len(value)} characters)" if SENSITIVE_NAME.search(name) else None
+
+
 Result = tuple[str, list[Source]]
 
 
@@ -69,6 +88,8 @@ def _run(ctx: RunContext[RunDeps], tool: str, args: dict[str, Any], body: Callab
     except NotFound as e:
         text, sources = str(e), []
     except ApiException as e:
+        if e.status == 401:
+            raise ClusterAuthError(AUTH_HINT) from None
         # e.g. 403 from RBAC. Tell the model what happened in one line.
         text, sources = f"Kubernetes API error {e.status}: {e.reason}", []
     call_id = ctx.deps.recorder.record(tool, args, sources, ctx.tool_call_id)
@@ -264,7 +285,7 @@ def _probe(p) -> str:
 
 def _env(e) -> str:
     if e.value is not None:
-        return f"{e.name}={_cap(e.value, 200)}"
+        return f"{e.name}={_masked(e.name, e.value) or _cap(e.value, 200)}"
     ref = e.value_from
     if ref and ref.config_map_key_ref:
         return f"{e.name} from ConfigMap {ref.config_map_key_ref.name} key {ref.config_map_key_ref.key}"
@@ -317,7 +338,9 @@ def get_configmap(c: Cluster, ns: str, name: str) -> Result:
     if not data:
         text = f"ConfigMap {name}: no data"
     else:
-        text = "\n".join(f"--- {key}:\n{_cap(value, MAX_VALUE_CHARS)}" for key, value in sorted(data.items()))
+        text = "\n".join(
+            f"--- {key}:\n{_masked(key, value) or _cap(value, MAX_VALUE_CHARS)}" for key, value in sorted(data.items())
+        )
     return text, [Source(kind="ConfigMap", name=name, aspect="data")]
 
 

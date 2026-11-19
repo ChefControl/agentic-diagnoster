@@ -125,21 +125,34 @@ verify_boundary() {
   fi
 }
 
-# Kubeconfigs with short-lived tokens. *.internal.* is for containers on the
-# "kind" Docker network, where the API server is reached by container name.
+# Kubeconfigs with short-lived tokens:
+# - .kube/<identity>.kubeconfig for this machine;
+# - .kube/<container>/<identity>.kubeconfig for containers on the "kind" Docker
+#   network, where the API server is reached by container name. Each container
+#   mounts only its own folder, so it holds only the identities it uses.
+container_of() {
+  case "$1" in
+    reader | remediator) echo agent ;;
+    scenario-manager) echo ui ;;
+  esac
+}
+
 write_kubeconfigs() {
   log "writing kubeconfigs (${TOKEN_DURATION} tokens) to .kube/"
-  local out="$ROOT/.kube" server ca internal token
-  mkdir -p "$out"
+  local out="$ROOT/.kube" server ca internal token dir
+  mkdir -p "$out/agent" "$out/ui"
+  # Earlier versions kept every container's kubeconfig side by side.
+  rm -f "$out"/*.internal.kubeconfig
   server=$(k config view --raw --minify -o jsonpath='{.clusters[0].cluster.server}')
   ca=$(k config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
   internal="https://${CLUSTER}-control-plane:6443"
   for id in "${IDENTITIES[@]}"; do
     token=$(k -n diagnoster-system create token "diagnoster-${id}" --duration="$TOKEN_DURATION")
+    dir=$(container_of "$id")
     kubeconfig "$server" "$id" "$token" >"$out/${id}.kubeconfig"
-    kubeconfig "$internal" "$id" "$token" >"$out/${id}.internal.kubeconfig"
-    chmod 600 "$out/${id}.kubeconfig" "$out/${id}.internal.kubeconfig"
-    ok ".kube/${id}.kubeconfig (+ .internal)"
+    kubeconfig "$internal" "$id" "$token" >"$out/${dir}/${id}.kubeconfig"
+    chmod 600 "$out/${id}.kubeconfig" "$out/${dir}/${id}.kubeconfig"
+    ok ".kube/${id}.kubeconfig (+ .kube/${dir}/ for the ${dir} container)"
   done
 }
 
@@ -172,17 +185,17 @@ up() {
   install_boundary
   verify_boundary
   write_kubeconfigs
-  log "cluster '$CLUSTER' is ready"
+  log "cluster '$CLUSTER' is ready; the tokens last ${TOKEN_DURATION}, run ./cluster.sh --up again to renew them"
 }
 
 down() {
   require kind
   log "deleting kind cluster '$CLUSTER'"
   kind delete cluster --name "$CLUSTER"
-  # Delete the files but keep the folder: compose.yaml mounts it into the UI
-  # container, and a running container keeps seeing a deleted folder, so the
+  # Delete the files but keep the folders: compose.yaml mounts them into the
+  # containers, and a running container keeps seeing a deleted folder, so the
   # next --up would write somewhere the container can't see.
-  rm -f "$ROOT"/.kube/*.kubeconfig
+  rm -f "$ROOT"/.kube/*.kubeconfig "$ROOT"/.kube/*/*.kubeconfig
   ok "cluster and kubeconfigs removed"
 }
 

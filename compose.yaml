@@ -1,11 +1,24 @@
 # The UI, the agent and Phoenix, on kind's Docker network. Run ./cluster.sh --up first:
 # kind creates that network, and cluster.sh writes the kubeconfigs in .kube/.
+# (With CLUSTER_MODE=recorded and no cluster at all, `docker network create kind`
+# is enough; a later ./cluster.sh --up reuses that network.)
 #
 #   docker compose up -d --build
 #
 # UI:      http://localhost:8787
 # Phoenix: http://localhost:6006  (traces, and the evals: see phoenix-setup)
-# Agent:   http://localhost:8000  (OpenAI chat-completions format)
+# Agent:   http://localhost:8000  (/v1/runs, and OpenAI's and Anthropic's chat formats)
+#
+# Scenarios from the command line, with nothing but Docker:
+#   docker compose exec ui npm run scenarios -- deploy all
+#   docker compose exec ui npm run scenarios -- check all --wait 180
+#   docker compose exec ui npm run scenarios -- reset bad-probe
+#
+# Every port listens on 127.0.0.1 only. The UI and the agent also refuse
+# requests addressed to any other host name, and changes that a web page could
+# send without a CORS preflight. Phoenix has login turned off (a local,
+# single-user setup) and holds the API keys for its judge and Playground: keep
+# it on 127.0.0.1, and set PHOENIX_ENABLE_AUTH to true if this machine is shared.
 
 services:
   ui:
@@ -17,7 +30,7 @@ services:
     environment:
       # The .internal kubeconfig reaches the API server by its container name,
       # which only resolves on the kind network.
-      SCENARIO_MANAGER_KUBECONFIG: /kube/scenario-manager.internal.kubeconfig
+      SCENARIO_MANAGER_KUBECONFIG: /kube/scenario-manager.kubeconfig
       # The browser opens Phoenix on your machine; the API checks it by its
       # service name, because inside this container "localhost" is the container.
       PHOENIX_URL: http://localhost:6006
@@ -30,13 +43,23 @@ services:
     # ignores file owners and the default works.
     user: "${UID:-1000}"
     volumes:
-      # The whole folder, read-only: cluster.sh rewrites these files when it
-      # issues fresh tokens, and the API rereads them on every request.
-      - ./.kube:/kube:ro
+      # Only the UI's own identity, read-only. A folder, not the file:
+      # cluster.sh rewrites it when it issues fresh tokens, and the API rereads
+      # it on every request.
+      - ./.kube/ui:/kube:ro
       # Scenario edits take effect without rebuilding the image.
       - ./scenarios:/app/scenarios:ro
     networks: [kind]
-    depends_on: [phoenix, agent]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    depends_on:
+      phoenix:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
     restart: unless-stopped
 
   # The agent as an HTTP service. Phoenix calls it like a chat model, in
@@ -57,9 +80,9 @@ services:
       - path: .env
         required: false
     environment:
-      READER_KUBECONFIG: /kube/reader.internal.kubeconfig
+      READER_KUBECONFIG: /kube/reader.kubeconfig
       # Loaded only by the remediation workflow, after a person approves the fix.
-      REMEDIATOR_KUBECONFIG: /kube/remediator.internal.kubeconfig
+      REMEDIATOR_KUBECONFIG: /kube/remediator.kubeconfig
       # Traces go to Phoenix by its service name; links in answers are for your browser.
       PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
       PHOENIX_URL: http://localhost:6006
@@ -69,9 +92,17 @@ services:
       RUN_TIMEOUT_S: "80"
     user: "${UID:-1000}"
     volumes:
-      - ./.kube:/kube:ro
+      # Only the agent's two identities, never the UI's.
+      - ./.kube/agent:/kube:ro
     networks: [kind]
-    depends_on: [phoenix]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    depends_on:
+      phoenix:
+        condition: service_healthy
     restart: unless-stopped
 
   # Runs once after Phoenix starts and puts the evals into it: the agent in the
@@ -117,8 +148,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
-      - "127.0.0.1:6006:6006" # UI and OTLP over HTTP
-      - "127.0.0.1:4317:4317" # OTLP over gRPC
+      - "127.0.0.1:6006:6006" # UI and OTLP over HTTP (the agent sends over HTTP)
     volumes:
       - phoenix-data:/root/.phoenix
     networks: [kind]

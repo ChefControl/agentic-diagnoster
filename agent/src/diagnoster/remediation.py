@@ -20,16 +20,18 @@ from opentelemetry import trace
 from .cluster import Cluster
 from .contract import Diagnosis, ProposedFix
 
-# The allowlist: one Deployment, one field, and the new value must be a plain path.
+# The allowlist: one Deployment, one field, and the new value must be a plain,
+# non-root path. "/" is refused: it would make the probe check the index page,
+# which weakens it instead of fixing it.
 NAMESPACE = "payments"
 TARGET = "deployment/payments-api"
 FIELD = "readinessProbe.httpGet.path"
-PATH_PATTERN = re.compile(r"^/[\w/-]*$")
+PATH_PATTERN = re.compile(r"/[\w-]+(/[\w-]+)*")  # used with fullmatch: no trailing newline, no "//"
 VERIFY_TIMEOUT_S = 90
 FIELD_MANAGER = "diagnoster-remediator"
 VERIFY_INTERVAL_S = 3
 
-Status = Literal["not_allowed", "stale", "fixed", "not_fixed"]
+Status = Literal["not_allowed", "stale", "failed", "fixed", "not_fixed"]
 
 
 @dataclass
@@ -51,7 +53,7 @@ def check_allowed(diagnosis: Diagnosis | None) -> tuple[ProposedFix | None, str]
         return None, f"only {TARGET} may be changed, not {fix.target}"
     if fix.field != FIELD:
         return None, f"only {FIELD} may be changed, not {fix.field}"
-    if not PATH_PATTERN.match(fix.to):
+    if not PATH_PATTERN.fullmatch(fix.to):
         return None, f"the new path {fix.to!r} is not a plain path like /health"
     return fix, "allowed"
 
@@ -65,8 +67,12 @@ def patch_body(container: str, path: str) -> dict[str, Any]:
     return {"spec": {"template": {"spec": {"containers": [{"name": container, "readinessProbe": {"httpGet": {"path": path}}}]}}}}
 
 
-def apply(remediator: Cluster, fix: ProposedFix) -> tuple[bool, str]:
-    """Patch the probe path, after checking the live value still equals `from`."""
+class Stale(Exception):
+    """The live value is no longer the one the agent saw; nothing was changed."""
+
+
+def apply(remediator: Cluster, fix: ProposedFix) -> str:
+    """Patch the probe path, after checking the live value still equals `from`. Raises Stale when it doesn't."""
     name = TARGET.split("/", 1)[1]
     dep = remediator.apps.read_namespaced_deployment(name, NAMESPACE)
     live = {
@@ -77,10 +83,10 @@ def apply(remediator: Cluster, fix: ProposedFix) -> tuple[bool, str]:
     container = next((c for c, path in live.items() if path == fix.from_), None)
     if container is None:
         found = ", ".join(f"{c}: {p}" for c, p in live.items()) or "no HTTP readiness probe"
-        return False, f"the live probe path is not {fix.from_!r} ({found}); nothing was changed"
+        raise Stale(f"the live probe path is not {fix.from_!r} ({found}); nothing was changed")
     # field_manager names us in managedFields, so the cluster shows who made the change.
     remediator.apps.patch_namespaced_deployment(name, NAMESPACE, patch_body(container, fix.to), field_manager=FIELD_MANAGER)
-    return True, f"patched container {container}: {fix.from_} -> {fix.to}"
+    return f"patched container {container}: {fix.from_} -> {fix.to}"
 
 
 def check_once(reader: Cluster) -> tuple[bool, str]:
@@ -132,7 +138,7 @@ def fix(
         outcome = _fix(diagnosis, tracer, remediator, reader, verify_fn)
         span.set_attribute("diagnoster.remediation.status", outcome.status)
         span.set_attribute("output.value", outcome.detail)
-        if outcome.status in ("stale", "not_fixed"):
+        if outcome.status in ("stale", "failed", "not_fixed"):
             span.set_status(trace.Status(trace.StatusCode.ERROR, outcome.detail))
     return outcome
 
@@ -146,17 +152,28 @@ def _fix(diagnosis, tracer, remediator, reader, verify_fn) -> Outcome:
 
     with tracer.start_as_current_span("apply") as span:
         try:
-            applied, detail = apply(remediator(), fix)
+            detail = apply(remediator(), fix)
+        except Stale as e:
+            span.set_attribute("output.value", str(e))
+            return Outcome("stale", str(e))
         except ApiException as e:
-            applied, detail = False, f"the API refused the change: {e.status} {e.reason}"
+            detail = f"the API refused the change, nothing was changed: {e.status} {e.reason}"
+            span.set_attribute("output.value", detail)
+            return Outcome("failed", detail)
         except FileNotFoundError as e:  # no remediator kubeconfig
-            applied, detail = False, str(e)
+            span.set_attribute("output.value", str(e))
+            return Outcome("failed", f"{e}; nothing was changed")
         span.set_attribute("output.value", detail)
-    if not applied:
-        return Outcome("stale", detail)
 
+    # The change is made from here on, so whatever goes wrong while checking it
+    # is reported as an outcome with the patch in it, never lost as an error.
     with tracer.start_as_current_span("verify") as span:
-        fixed, seen = verify_fn(reader())
+        try:
+            fixed, seen = verify_fn(reader())
+        except (ApiException, FileNotFoundError) as e:
+            why = f"{e.status} {e.reason}" if isinstance(e, ApiException) else str(e)
+            span.set_attribute("output.value", f"could not check: {why}")
+            return Outcome("not_fixed", f"{detail}; could not check the result: {why}")
         span.set_attribute("output.value", seen[-1] if seen else "")
     if fixed:
         return Outcome("fixed", f"{detail}; fixed: {seen[-1]}", seen)

@@ -27,6 +27,13 @@ still answers 200 with a stopped report: that is a result. A model failure
 (a rate limit, an outage, a missing key, an unknown model) answers 502, so it
 is recorded as an error and not as a wrong answer.
 
+Who may call it: requests must name this machine or the Compose service in
+their Host header (ALLOWED_HOSTS), and every POST must be JSON. A web page in
+your browser can't send a JSON POST to another site without that site's
+permission (a CORS preflight, never granted here), so it can neither run the
+agent on your API key nor approve a fix; and the Host check stops it from
+pointing a domain of its own at 127.0.0.1 to read the answers.
+
 Fixes: only the chat can approve one. In the vendor formats (Phoenix, evals)
 and on the recorded cluster, the agent's apply_fix is denied with a plain
 message and the run finishes. In the chat, a run that asks to apply a fix
@@ -51,6 +58,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import recorded, remediation
 from .agent import Paused, diagnose, resume
@@ -58,6 +66,7 @@ from .cluster import Cluster, connect
 from .config import Settings, load_settings
 from .contract import Diagnosis, Remediation, RunReport
 from .reply import render
+from .tools import ClusterAuthError
 from .tracing import setup
 
 log = logging.getLogger(__name__)
@@ -75,6 +84,33 @@ RECORDED = "The recorded cluster can't be changed, so nothing was changed. Give 
 
 class BadRequest(Exception):
     pass
+
+
+def _hostname(host: str) -> str:
+    """"localhost:8000" -> "localhost", "[::1]:8000" -> "[::1]"."""
+    host = host.lower()
+    return host[: host.index("]") + 1] if host.startswith("[") and "]" in host else host.split(":")[0]
+
+
+class LocalOnly:
+    """Refuse requests addressed to other host names, and POSTs that aren't JSON."""
+
+    def __init__(self, app: ASGIApp, hosts: tuple[str, ...]):
+        self.app = app
+        self.hosts = set(hosts)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
+            refusal = None
+            if _hostname(headers.get("host", "")) not in self.hosts:
+                refusal = _openai_error(403, "This service only answers requests addressed to localhost or agent.", "forbidden")
+            elif scope["method"] == "POST" and not headers.get("content-type", "").lower().startswith("application/json"):
+                refusal = _openai_error(415, "Send the body as JSON (content-type: application/json).", "invalid_request_error")
+            if refusal is not None:
+                await refusal(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
 
 
 @dataclass(frozen=True)
@@ -213,7 +249,7 @@ def create_app(
     verify_fn: Callable[[Cluster], tuple[bool, list[str]]] = remediation.verify,
     tracer_provider: TracerProvider | None = None,
     clock: Callable[[], float] = time.monotonic,
-) -> Starlette:
+) -> ASGIApp:
     """The app. Tests pass a scripted model and fake clusters; `app_from_env` passes nothing."""
     # A fresh connection per request picks up a re-issued token.
     live = live or (lambda: connect(settings.reader_kubeconfig))
@@ -263,6 +299,8 @@ def create_app(
                 tracer_provider=tracer_provider,
                 raise_model_errors=True,
             )
+        except ClusterAuthError as e:
+            return fmt.error(503, str(e), "cluster_unavailable")
         except Exception as e:  # noqa: BLE001 - whatever stopped the model, the caller gets an error, not an answer
             log.warning("model error with %s: %s: %s", model_name, type(e).__name__, e)
             return fmt.error(502, f"{type(e).__name__}: {e}", "model_error")
@@ -315,6 +353,8 @@ def create_app(
                 tracer_provider=tracer_provider,
                 raise_model_errors=True,
             )
+        except ClusterAuthError as e:
+            return _openai_error(503, str(e), "cluster_unavailable")
         except Exception as e:  # noqa: BLE001 - the chat gets an error, not an answer
             log.warning("model error with %s: %s: %s", model_name, type(e).__name__, e)
             return _openai_error(502, f"{type(e).__name__}: {e}", "model_error")
@@ -353,6 +393,8 @@ def create_app(
         waiting = entry[1]
         try:
             report = await resume(waiting, approved, tracer_provider=tracer_provider, raise_model_errors=True)
+        except ClusterAuthError as e:
+            return _openai_error(503, str(e), "cluster_unavailable")
         except Exception as e:  # noqa: BLE001
             log.warning("model error resuming %s: %s: %s", run_id, type(e).__name__, e)
             return _openai_error(502, f"{type(e).__name__}: {e}", "model_error")
@@ -376,7 +418,7 @@ def create_app(
         if tracer_provider is not None:
             tracer_provider.force_flush()
 
-    return Starlette(
+    app = Starlette(
         routes=[
             Route("/healthz", healthz),
             Route("/v1/models", models),
@@ -387,9 +429,10 @@ def create_app(
         ],
         lifespan=lifespan,
     )
+    return LocalOnly(app, settings.allowed_hosts)
 
 
-def app_from_env() -> Starlette:
+def app_from_env() -> ASGIApp:
     """What uvicorn serves: `uvicorn diagnoster.server:app_from_env --factory`."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     settings = load_settings()

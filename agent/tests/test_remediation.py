@@ -5,6 +5,7 @@ Approval itself is the agent's (a deferred tool); see test_agent.py."""
 from unittest.mock import patch
 
 import pytest
+from kubernetes.client.exceptions import ApiException
 from fakes import World, container, container_status, deployment, endpoint_slice, pod, probe
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -64,6 +65,9 @@ def test_the_allowed_fix_passes_the_allowlist():
         ({"to": "health"}, "is not a plain path"),
         ({"to": "/health; rm -rf /"}, "is not a plain path"),
         ({"to": "/health?x=1"}, "is not a plain path"),
+        ({"to": "/health\n"}, "is not a plain path"),
+        ({"to": "/"}, "is not a plain path"),
+        ({"to": "//health"}, "is not a plain path"),
     ],
 )
 def test_the_allowlist_rejects_everything_else(changes, why):
@@ -121,6 +125,33 @@ def test_a_live_value_that_changed_stops_without_patching():
     outcome, _ = run(w)
     assert outcome.status == "stale" and "api: /ready" in outcome.detail
     assert w.patches == []
+
+
+def test_a_refused_patch_is_failed_not_stale():
+    def refusing():
+        raise ApiException(status=403, reason="Forbidden")
+
+    outcome = remediation.fix(diagnosis(), remediator=refusing, reader=payments().cluster)
+    assert outcome.status == "failed" and "403 Forbidden" in outcome.detail and "nothing was changed" in outcome.detail
+
+
+def test_a_missing_write_account_is_failed():
+    def missing():
+        raise FileNotFoundError("no remediator kubeconfig")
+
+    outcome = remediation.fix(diagnosis(), remediator=missing, reader=payments().cluster)
+    assert outcome.status == "failed"
+
+
+def test_an_error_while_checking_still_reports_the_applied_patch():
+    def expired(reader):
+        raise ApiException(status=401, reason="Unauthorized")
+
+    w = payments()
+    outcome, _ = run(w, verify_fn=expired)
+    assert outcome.status == "not_fixed"
+    assert "patched container api" in outcome.detail and "could not check the result: 401 Unauthorized" in outcome.detail
+    assert len(w.patches) == 1
 
 
 def test_a_failed_verification_is_reported():

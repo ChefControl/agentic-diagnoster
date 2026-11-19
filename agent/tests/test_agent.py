@@ -127,6 +127,7 @@ async def test_citing_an_unknown_id_makes_the_model_retry():
     [
         (Settings(namespaces=("catalog",), request_limit=3, tool_calls_limit=50), "request_limit"),
         (Settings(namespaces=("catalog",), request_limit=50, tool_calls_limit=2), "tool_call_limit"),
+        (Settings(namespaces=("catalog",), request_limit=50, tool_calls_limit=50, tokens_limit=600), "token_limit"),
     ],
 )
 async def test_each_limit_stops_the_run_with_its_reason(settings, reason):

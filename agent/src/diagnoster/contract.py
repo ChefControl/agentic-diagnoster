@@ -124,7 +124,7 @@ class ToolCall(_Strict):
     sources: list[Source] = []
 
 
-StopReason = Literal["request_limit", "tool_call_limit", "timeout", "invalid_output", "model_error"]
+StopReason = Literal["request_limit", "tool_call_limit", "token_limit", "timeout", "invalid_output", "model_error"]
 
 # What became of a fix the agent asked to apply (its apply_fix tool):
 # - asked: waiting for the person (the run is awaiting_approval)
@@ -132,8 +132,9 @@ StopReason = Literal["request_limit", "tool_call_limit", "timeout", "invalid_out
 # - not_allowed: our allowlist refused it before anyone was asked
 # - denied: the person said no
 # - stale: approved, but the live value had changed, so nothing was changed
+# - failed: approved, but the change could not be made (the API refused it, or no write account)
 # - fixed / not_fixed: approved and applied; fresh reads did or didn't show it working
-RemediationStatus = Literal["asked", "not_asked", "not_allowed", "denied", "stale", "fixed", "not_fixed"]
+RemediationStatus = Literal["asked", "not_asked", "not_allowed", "denied", "stale", "failed", "fixed", "not_fixed"]
 
 
 class Remediation(_Strict):
