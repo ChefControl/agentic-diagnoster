@@ -998,7 +998,8 @@ details[open] > summary .disclosure {
 }
 
 .answer-outcome.is-not_fixed,
-.answer-outcome.is-stale {
+.answer-outcome.is-stale,
+.answer-outcome.is-failed {
   background: var(--fail-surface);
   color: var(--fail);
 }

@@ -13,6 +13,9 @@ from fakes import (
     selector_mismatch_world,
 )
 
+import pytest
+from kubernetes.client.exceptions import ApiException
+
 from diagnoster import tools
 from diagnoster.contract import Source
 
@@ -162,3 +165,44 @@ def test_recorder_numbers_calls_in_order():
     assert r.record("list_pods", {"namespace": "shop"}, [], "call_1") == "tc_1"
     assert r.record("get_service", {"namespace": "shop", "name": "x"}, [], None) == "tc_2"
     assert r.ids() == {"tc_1", "tc_2"} and r.calls[0].provider_id == "call_1"
+
+
+def test_values_under_credential_like_names_are_masked():
+    w = World()
+    w.configmaps = [configmap("app", {"DB_PASSWORD": "hunter2", "api_key": "sk-123", "DB_URL": "postgres://db"})]
+    text, _ = tools.get_configmap(w.cluster(), "shop", "app")
+    assert "hunter2" not in text and "sk-123" not in text
+    assert "--- DB_PASSWORD:\n(masked: 7 characters)" in text
+    assert "--- DB_URL:\npostgres://db" in text
+
+    w.deployments = [deployment("api", {"app": "api"}, containers=[container("api", env_=[env("AUTH_TOKEN", "abc"), env("MODE", "prod")])])]
+    text, _ = tools.get_deployment(w.cluster(), "shop", "api")
+    assert "AUTH_TOKEN=(masked: 3 characters)" in text and "MODE=prod" in text
+
+
+def test_a_rejected_token_stops_the_run_instead_of_reaching_the_model():
+    class Ctx:
+        tool_call_id = "x"
+
+        class deps:
+            recorder = tools.Recorder()
+
+    def expired():
+        raise ApiException(status=401, reason="Unauthorized")
+
+    with pytest.raises(tools.ClusterAuthError, match="cluster.sh --up"):
+        tools._run(Ctx, "list_pods", {}, expired)
+    assert Ctx.deps.recorder.calls == []
+
+
+def test_a_forbidden_call_is_told_to_the_model():
+    class Ctx:
+        tool_call_id = "x"
+
+        class deps:
+            recorder = tools.Recorder()
+
+    def forbidden():
+        raise ApiException(status=403, reason="Forbidden")
+
+    assert tools._run(Ctx, "list_pods", {}, forbidden) == "[tc_1]\nKubernetes API error 403: Forbidden"

@@ -18,7 +18,7 @@ def _report(output):
     block) and plain JSON replies can still be re-graded.
     """
     if isinstance(output, dict) and "messages" in output:  # how Phoenix stores a Playground run
-        output = output["messages"][-1]["content"]
+        output = output["messages"][0]["content"]  # the agent answers with one message; the judge reads the same
     if isinstance(output, str):
         text = output.strip()
         start, end = text.rfind("```json\n"), text.rfind("\n```")

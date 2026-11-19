@@ -79,6 +79,8 @@ export function remediationText(remediation: AgentRemediation, cluster: AgentRun
       return "Fix applied, but the check didn't show it working in time.";
     case "stale":
       return "Nothing was changed: the live value no longer matched what the agent saw.";
+    case "failed":
+      return "Nothing was changed: the change couldn't be made.";
     case "denied":
       return "You didn't approve the fix. Nothing was changed.";
     case "not_allowed":

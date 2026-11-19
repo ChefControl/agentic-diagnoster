@@ -25,7 +25,9 @@ from diagnoster.config import Settings
 from diagnoster.contract import RunReport
 from diagnoster.reply import unwrap
 from diagnoster.server import create_app, model_for
+from diagnoster.tools import AUTH_HINT
 
+LOCAL = "http://localhost"  # the service answers only to local names
 SETTINGS = Settings(model="openai:the-default", namespaces=("catalog", "shop"), phoenix_url="http://phoenix.test")
 ASK = {"messages": [{"role": "user", "content": QUESTION}]}
 CLAUDE_ASK = {"model": "claude-haiku-5-5", "max_tokens": 1024, "messages": [{"role": "user", "content": QUESTION}]}
@@ -38,7 +40,7 @@ def diagnosing():
 
 def client(model=None, settings=SETTINGS, **kw) -> TestClient:
     kw.setdefault("live", lambda: selector_mismatch_world().cluster())
-    return TestClient(create_app(settings, resolve_model=lambda name: model or diagnosing(), **kw))
+    return TestClient(create_app(settings, resolve_model=lambda name: model or diagnosing(), **kw), base_url=LOCAL)
 
 
 def openai_content(response) -> str:
@@ -128,7 +130,7 @@ def test_the_reply_names_the_model_that_answered():
         asked.append(name)
         return diagnosing()
 
-    app = TestClient(create_app(SETTINGS, resolve_model=resolve, live=lambda: selector_mismatch_world().cluster()))
+    app = TestClient(create_app(SETTINGS, resolve_model=resolve, live=lambda: selector_mismatch_world().cluster()), base_url=LOCAL)
     response = app.post("/v1/messages", json=CLAUDE_ASK)
     assert asked == ["anthropic:claude-haiku-5-5"]
     assert response.json()["model"] == "anthropic:claude-haiku-5-5"
@@ -245,7 +247,7 @@ def test_a_request_without_a_question_is_a_400(path, body):
 
 def test_live_mode_without_a_kubeconfig_is_a_503_that_says_what_to_run(tmp_path):
     settings = Settings(reader_kubeconfig=tmp_path / "missing.kubeconfig")
-    app = TestClient(create_app(settings, resolve_model=lambda name: diagnosing()))
+    app = TestClient(create_app(settings, resolve_model=lambda name: diagnosing()), base_url=LOCAL)
     response = app.post("/v1/chat/completions", json=ASK)
     assert response.status_code == 503
     assert "./cluster.sh --up" in response.json()["error"]["message"]
@@ -354,7 +356,8 @@ def fixing_app(seen, world=None, clock=lambda: 0.0, settings=SETTINGS, **kw):
             verify_fn=lambda reader: (True, ["pods ready 2/2"]),
             clock=clock,
             **kw,
-        )
+        ),
+        base_url=LOCAL,
     )
 
 
@@ -396,7 +399,10 @@ def test_a_waiting_fix_expires_after_30_minutes():
 @pytest.mark.parametrize("body", [{}, {"approved": "yes"}, None])
 def test_an_approval_needs_true_or_false(body):
     _, app = fixing_app([])
-    assert app.post("/v1/runs/" + "a" * 32 + "/approval", json=body).status_code == 400
+    response = app.post(
+        "/v1/runs/" + "a" * 32 + "/approval", content=json.dumps(body), headers={"content-type": "application/json"}
+    )
+    assert response.status_code == 400
 
 
 def test_phoenix_and_evals_never_wait_the_fix_is_denied():
@@ -415,3 +421,50 @@ def test_the_recorded_cluster_never_offers_the_fix():
     assert reply["status"] == "complete" and reply["report"]["remediation"]["status"] == "not_asked"
     assert seen == ["The recorded cluster can't be changed, so nothing was changed. Give your final answer."]
     assert world.patches == []
+
+
+# ---- who may call it ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("host", ["localhost:8000", "127.0.0.1:8000", "[::1]:8000", "agent:8000"])
+def test_local_names_and_the_compose_service_are_answered(host):
+    assert client().get("/healthz", headers={"host": host}).status_code == 200
+
+
+@pytest.mark.parametrize("host", ["evil.example:8000", "localhost.evil.example", ""])
+def test_any_other_host_name_is_refused(host):
+    # A page that points its own domain at 127.0.0.1 sends that domain here.
+    response = client().get("/healthz", headers={"host": host})
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("path", ["/v1/runs", "/v1/chat/completions", "/v1/messages", "/v1/runs/" + "a" * 32 + "/approval"])
+def test_a_post_that_is_not_json_is_refused_before_the_agent_runs(path):
+    # A cross-site form or text/plain fetch needs no preflight; JSON does, and none is granted.
+    def must_not_run(messages, info):
+        raise AssertionError("the agent ran")
+
+    response = client(FunctionModel(must_not_run)).post(
+        path, content=json.dumps({"question": QUESTION, **ASK}), headers={"content-type": "text/plain"}
+    )
+    assert response.status_code == 415
+
+
+def test_a_rejected_cluster_token_is_a_503_that_says_how_to_renew_it():
+    from kubernetes.client.exceptions import ApiException
+
+    class Expired:
+        def __getattr__(self, name):
+            def call(*args, **kwargs):
+                raise ApiException(status=401, reason="Unauthorized")
+
+            return call
+
+    def expired_cluster():
+        from diagnoster.cluster import Cluster
+
+        return Cluster(core=Expired(), apps=Expired(), discovery=Expired())
+
+    response = client(live=expired_cluster).post("/v1/runs", json={"question": QUESTION})
+    assert response.status_code == 503
+    assert response.json()["error"]["message"] == AUTH_HINT

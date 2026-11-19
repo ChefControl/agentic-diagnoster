@@ -168,3 +168,112 @@ kind: RoleBinding
 metadata: {name: diagnoster-manage-scenarios, namespace: inventory}
 roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: diagnoster-manage-scenarios}
 subjects: [{kind: ServiceAccount, name: diagnoster-scenario-manager, namespace: diagnoster-system}]
+# ---------------------------------------------------------------- field guard
+# RBAC can name the one object the remediator may patch, not the one field.
+# This policy is that field rule, enforced by the API server: for the
+# remediator, a change to a Deployment may differ from the stored one only in
+# a container's readinessProbe.httpGet.path. The agent's code allows only that
+# patch too (agent/src/diagnoster/remediation.py); this holds even if that code
+# or the remediator's token is misused.
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: diagnoster-remediator-probe-path-only
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [UPDATE]
+        resources: [deployments]
+  matchConditions:
+    - name: remediator-only
+      expression: "request.userInfo.username == 'system:serviceaccount:diagnoster-system:diagnoster-remediator'"
+  variables:
+    - name: old
+      expression: oldObject.spec
+    - name: new
+      expression: object.spec
+    - name: oldPod
+      expression: oldObject.spec.template.spec
+    - name: newPod
+      expression: object.spec.template.spec
+  validations:
+    - message: "the remediator may not change the Deployment's labels, annotations, replicas, selector or rollout settings"
+      expression: >-
+        object.metadata.?labels == oldObject.metadata.?labels &&
+        object.metadata.?annotations == oldObject.metadata.?annotations &&
+        variables.new.?replicas == variables.old.?replicas &&
+        variables.new.selector == variables.old.selector &&
+        variables.new.?strategy == variables.old.?strategy &&
+        variables.new.?minReadySeconds == variables.old.?minReadySeconds &&
+        variables.new.?paused == variables.old.?paused &&
+        variables.new.template.?metadata == variables.old.template.?metadata
+    - message: "the remediator may not change the pod template outside its containers"
+      expression: >-
+        variables.newPod.?volumes == variables.oldPod.?volumes &&
+        variables.newPod.?initContainers == variables.oldPod.?initContainers &&
+        variables.newPod.?ephemeralContainers == variables.oldPod.?ephemeralContainers &&
+        variables.newPod.?serviceAccountName == variables.oldPod.?serviceAccountName &&
+        variables.newPod.?automountServiceAccountToken == variables.oldPod.?automountServiceAccountToken &&
+        variables.newPod.?nodeName == variables.oldPod.?nodeName &&
+        variables.newPod.?nodeSelector == variables.oldPod.?nodeSelector &&
+        variables.newPod.?hostNetwork == variables.oldPod.?hostNetwork &&
+        variables.newPod.?hostPID == variables.oldPod.?hostPID &&
+        variables.newPod.?hostIPC == variables.oldPod.?hostIPC &&
+        variables.newPod.?hostUsers == variables.oldPod.?hostUsers &&
+        variables.newPod.?shareProcessNamespace == variables.oldPod.?shareProcessNamespace &&
+        variables.newPod.?securityContext == variables.oldPod.?securityContext &&
+        variables.newPod.?imagePullSecrets == variables.oldPod.?imagePullSecrets &&
+        variables.newPod.?affinity == variables.oldPod.?affinity &&
+        variables.newPod.?tolerations == variables.oldPod.?tolerations &&
+        variables.newPod.?priorityClassName == variables.oldPod.?priorityClassName &&
+        variables.newPod.?runtimeClassName == variables.oldPod.?runtimeClassName &&
+        variables.newPod.?hostAliases == variables.oldPod.?hostAliases &&
+        variables.newPod.?dnsPolicy == variables.oldPod.?dnsPolicy &&
+        variables.newPod.?dnsConfig == variables.oldPod.?dnsConfig &&
+        variables.newPod.?schedulerName == variables.oldPod.?schedulerName &&
+        variables.newPod.?topologySpreadConstraints == variables.oldPod.?topologySpreadConstraints &&
+        variables.newPod.?restartPolicy == variables.oldPod.?restartPolicy &&
+        variables.newPod.?readinessGates == variables.oldPod.?readinessGates
+    - message: "the remediator may change only a container's readinessProbe.httpGet.path"
+      expression: >-
+        variables.newPod.containers.size() == variables.oldPod.containers.size() &&
+        variables.newPod.containers.all(c, variables.oldPod.containers.exists(o,
+          o.name == c.name &&
+          o.?image == c.?image &&
+          o.?imagePullPolicy == c.?imagePullPolicy &&
+          o.?command == c.?command &&
+          o.?args == c.?args &&
+          o.?workingDir == c.?workingDir &&
+          o.?env == c.?env &&
+          o.?envFrom == c.?envFrom &&
+          o.?ports == c.?ports &&
+          o.?volumeMounts == c.?volumeMounts &&
+          o.?resources == c.?resources &&
+          o.?securityContext == c.?securityContext &&
+          o.?lifecycle == c.?lifecycle &&
+          o.?livenessProbe == c.?livenessProbe &&
+          o.?startupProbe == c.?startupProbe &&
+          o.?readinessProbe.?exec == c.?readinessProbe.?exec &&
+          o.?readinessProbe.?tcpSocket == c.?readinessProbe.?tcpSocket &&
+          o.?readinessProbe.?grpc == c.?readinessProbe.?grpc &&
+          o.?readinessProbe.?httpGet.?port == c.?readinessProbe.?httpGet.?port &&
+          o.?readinessProbe.?httpGet.?host == c.?readinessProbe.?httpGet.?host &&
+          o.?readinessProbe.?httpGet.?scheme == c.?readinessProbe.?httpGet.?scheme &&
+          o.?readinessProbe.?httpGet.?httpHeaders == c.?readinessProbe.?httpGet.?httpHeaders &&
+          o.?readinessProbe.?initialDelaySeconds == c.?readinessProbe.?initialDelaySeconds &&
+          o.?readinessProbe.?periodSeconds == c.?readinessProbe.?periodSeconds &&
+          o.?readinessProbe.?timeoutSeconds == c.?readinessProbe.?timeoutSeconds &&
+          o.?readinessProbe.?successThreshold == c.?readinessProbe.?successThreshold &&
+          o.?readinessProbe.?failureThreshold == c.?readinessProbe.?failureThreshold))
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: diagnoster-remediator-probe-path-only
+spec:
+  policyName: diagnoster-remediator-probe-path-only
+  validationActions: [Deny]

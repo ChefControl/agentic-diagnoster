@@ -147,7 +147,7 @@ export type AgentStopReason =
 
 // What became of the fix the agent asked to apply; written by the agent's code, not the model.
 export interface AgentRemediation {
-  status: "asked" | "not_asked" | "not_allowed" | "denied" | "stale" | "fixed" | "not_fixed";
+  status: "asked" | "not_asked" | "not_allowed" | "denied" | "stale" | "failed" | "fixed" | "not_fixed";
   detail: string;
   fix: AgentProposedFix | null;
   expected_effect: string | null; // the agent's words, given when it asked

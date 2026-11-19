@@ -5,6 +5,11 @@ A fact is backed when a cited tool call looked at one of the fact's sources
 sources come from our code's record of each call, not from the model's words.
 Supporting facts are reported but not graded.
 
+What it does not check: that the fact's wording is true. A call that read
+every pod in a namespace backs any pod-status fact. The check is that the
+agent looked in the right place and cited it; whether the conclusion is
+right is the `diagnosis` evaluator's job.
+
 This file is uploaded to Phoenix as it is and runs there in a sandbox, so it
 uses the standard library only and imports nothing from this repository.
 `output` is the agent's reply; `reference` is the dataset row's expected answer.
@@ -21,7 +26,7 @@ def _report(output):
     block) and plain JSON replies can still be re-graded.
     """
     if isinstance(output, dict) and "messages" in output:  # how Phoenix stores a Playground run
-        output = output["messages"][-1]["content"]
+        output = output["messages"][0]["content"]  # the agent answers with one message; the judge reads the same
     if isinstance(output, str):
         text = output.strip()
         start, end = text.rfind("```json\n"), text.rfind("\n```")
