@@ -31,6 +31,7 @@ export const api = {
   reset: (id: string) => call<ScenarioStatus>("POST", `/api/scenarios/${id}/reset`),
   remove: (id: string) => call<ScenarioStatus>("DELETE", `/api/scenarios/${id}`),
   ask: (q: AgentQuestion, signal?: AbortSignal) => call<AgentRun>("POST", "/api/agent/runs", q, signal),
+  decide: (runId: string, approved: boolean) => call<AgentRun>("POST", `/api/agent/runs/${runId}/approval`, { approved }),
 };
 
 // Fetch now and every `ms` while mounted; refetch whenever `key` changes.

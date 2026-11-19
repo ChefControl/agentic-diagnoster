@@ -1,6 +1,6 @@
 // The agent's answer in plain words. The agent replies JSON (its report);
 // these turn that into what the chat says. Pure functions, tested on their own.
-import type { AgentRun, AgentStopReason, AgentToolCall } from "../shared/types.ts";
+import type { AgentRemediation, AgentRun, AgentStopReason, AgentToolCall } from "../shared/types.ts";
 
 // "missing_config" -> "Missing config"
 export function categoryLabel(category: string): string {
@@ -64,4 +64,27 @@ export function citedCalls(run: AgentRun, ids: string[]): AgentToolCall[] {
 // "openai:gpt-6-luna" -> "gpt-6-luna"
 export function modelName(model: string): string {
   return model.includes(":") ? model.slice(model.indexOf(":") + 1) : model;
+}
+
+// What became of the fix, in one sentence. The agent's code writes the
+// status; the detail (what was patched, what the fresh reads showed) follows it.
+export function remediationText(remediation: AgentRemediation, cluster: AgentRun["cluster"]): string {
+  switch (remediation.status) {
+    case "asked":
+      return "Waiting for your answer.";
+    case "fixed":
+      return "Fix applied, and it works.";
+    case "not_fixed":
+      return "Fix applied, but the check didn't show it working in time.";
+    case "stale":
+      return "Nothing was changed: the live value no longer matched what the agent saw.";
+    case "denied":
+      return "You didn't approve the fix. Nothing was changed.";
+    case "not_allowed":
+      return "This fix is outside what the agent may change, so it stays a recommendation.";
+    case "not_asked":
+      return cluster === "recorded"
+        ? "Fix not available: the agent is reading the recorded cluster."
+        : "No one could approve the fix here, so nothing was changed.";
+  }
 }

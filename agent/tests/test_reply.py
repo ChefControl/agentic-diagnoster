@@ -1,9 +1,9 @@
-"""The reply: JSON only, the report plus the model, the cluster and the trace link."""
+"""The reply: JSON only in a json code block, the report plus the model, the cluster and the trace link."""
 
 import json
 
 from diagnoster.contract import RunReport
-from diagnoster.reply import render
+from diagnoster.reply import render, unwrap
 
 COMPLETE = RunReport.model_validate(
     {
@@ -44,18 +44,20 @@ def report_of(reply: dict) -> RunReport:
     return RunReport.model_validate({k: v for k, v in reply.items() if k not in HEAD})
 
 
-def test_the_reply_is_json_only():
+def test_the_reply_is_json_only_in_a_code_block():
     text = render(COMPLETE, "openai:gpt-6-luna", "http://localhost:6006", cluster="live")
-    reply = json.loads(text)  # the whole message parses: no text around it
+    # A code block, so Phoenix's Markdown view keeps the indentation; nothing around it.
+    assert text.startswith("```json\n{\n  ") and text.endswith("\n}\n```")
+    reply = json.loads(unwrap(text))
     assert list(reply)[:3] == list(HEAD)
     assert reply["model"] == "openai:gpt-6-luna" and reply["cluster"] == "live"
     assert reply["trace_url"] == "http://localhost:6006/redirects/traces/0af7651916cd43dd8448eb211c80319c"
 
 
 def test_the_rest_is_the_exact_report():
-    assert report_of(json.loads(render(COMPLETE, "m", "http://p"))) == COMPLETE
-    assert report_of(json.loads(render(STOPPED, "m", "http://p"))) == STOPPED
+    assert report_of(json.loads(unwrap(render(COMPLETE, "m", "http://p")))) == COMPLETE
+    assert report_of(json.loads(unwrap(render(STOPPED, "m", "http://p")))) == STOPPED
 
 
 def test_a_run_without_tracing_has_no_trace_link():
-    assert json.loads(render(STOPPED, "m", "http://p"))["trace_url"] is None
+    assert json.loads(unwrap(render(STOPPED, "m", "http://p")))["trace_url"] is None

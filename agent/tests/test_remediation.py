@@ -1,4 +1,6 @@
-"""The remediation workflow on a fake cluster: only the allowed fix, only after "y", only one field."""
+"""The apply_fix body on a fake cluster: only the allowed fix, only one field, then verified.
+
+Approval itself is the agent's (a deferred tool); see test_agent.py."""
 
 from unittest.mock import patch
 
@@ -74,52 +76,35 @@ def test_a_recommendation_or_a_stopped_run_is_not_applied():
     assert remediation.check_allowed(None)[1] == "the run stopped without a diagnosis"
 
 
-# ---- explain, approve, apply ----------------------------------------------------
+# ---- apply ------------------------------------------------------------------------
 
 
-def run(world, answer="y", diag=None, verify_fn=None):
-    said, asked, opened = [], [], []
+def run(world, diag=None, verify_fn=None):
+    opened = []
 
     def remediator():
         opened.append(True)
         return world.cluster()
 
-    outcome = remediation.remediate(
+    outcome = remediation.fix(
         diag or diagnosis(),
         remediator=remediator,
-        reader=world.cluster(),
-        ask=lambda q: asked.append(q) or answer,
-        say=said.append,
+        reader=world.cluster,
         verify_fn=verify_fn or (lambda reader: (True, ["pods ready 2/2"])),
     )
-    return outcome, said, asked, opened
+    return outcome, opened
 
 
-@pytest.mark.parametrize("answer", ["n", "", "N", "yes", " no "])
-def test_anything_but_y_applies_nothing(answer):
+def test_a_disallowed_fix_is_never_applied_and_the_write_account_never_loaded():
     w = payments()
-    outcome, said, asked, opened = run(w, answer)
-    assert outcome.status == "declined"
-    assert w.patches == [] and opened == []  # the remediator account is never even loaded
-    assert asked == ["Apply? [y/N] "]
-
-
-def test_the_change_is_explained_before_asking():
-    outcome, said, asked, _ = run(payments(), "n")
-    assert "deployment/payments-api  readinessProbe.httpGet.path: /healthz -> /health" in said[0]
-    assert "pods become Ready" in said[0]
-
-
-def test_a_disallowed_fix_never_asks():
-    w = payments()
-    outcome, said, asked, opened = run(w, diag=diagnosis(target="deployment/checkout"))
+    outcome, opened = run(w, diag=diagnosis(target="deployment/checkout"))
     assert outcome.status == "not_allowed" and "stays a recommendation" in outcome.detail
-    assert asked == [] and w.patches == [] and opened == []
+    assert w.patches == [] and opened == []
 
 
-def test_y_patches_exactly_the_one_field():
+def test_the_approved_fix_patches_exactly_the_one_field():
     w = payments()
-    outcome, *_ = run(w, " Y ")
+    outcome, _ = run(w)
     assert outcome.status == "fixed"
     assert w.patches == [
         (
@@ -133,13 +118,13 @@ def test_y_patches_exactly_the_one_field():
 
 def test_a_live_value_that_changed_stops_without_patching():
     w = payments(path="/ready")
-    outcome, *_ = run(w)
+    outcome, _ = run(w)
     assert outcome.status == "stale" and "api: /ready" in outcome.detail
     assert w.patches == []
 
 
 def test_a_failed_verification_is_reported():
-    outcome, *_ = run(payments(), verify_fn=lambda reader: (False, ["pods ready 0/2"]))
+    outcome, _ = run(payments(), verify_fn=lambda reader: (False, ["pods ready 0/2"]))
     assert outcome.status == "not_fixed" and "pods ready 0/2" in outcome.detail
 
 
@@ -178,7 +163,7 @@ def test_verify_gives_up_at_the_deadline():
 # ---- tracing ------------------------------------------------------------------------
 
 
-def test_the_workflow_is_traced_with_approve_apply_and_verify_spans():
+def test_the_fix_is_traced_with_apply_and_verify_spans():
     exporter = InMemorySpanExporter()
     provider = tracing.make_provider(SimpleSpanProcessor(exporter))
     tracer = provider.get_tracer("test")
@@ -187,9 +172,8 @@ def test_the_workflow_is_traced_with_approve_apply_and_verify_spans():
         with tracer.start_as_current_span("diagnose"):
             run(payments())
     spans = {s.name: s for s in exporter.get_finished_spans()}
-    assert {"diagnose", "remediate", "approve", "apply", "verify"} <= set(spans)
+    assert {"diagnose", "remediate", "apply", "verify"} <= set(spans)
     assert spans["remediate"].parent.span_id == spans["diagnose"].context.span_id
-    for child in ("approve", "apply", "verify"):
+    for child in ("apply", "verify"):
         assert spans[child].parent.span_id == spans["remediate"].context.span_id
-    assert spans["approve"].attributes["diagnoster.approval.answer"] == "y"
     assert spans["remediate"].attributes["diagnoster.remediation.status"] == "fixed"

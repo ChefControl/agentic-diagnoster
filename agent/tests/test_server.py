@@ -23,6 +23,7 @@ from diagnoster import tracing
 from diagnoster.agent import SYSTEM_PROMPT
 from diagnoster.config import Settings
 from diagnoster.contract import RunReport
+from diagnoster.reply import unwrap
 from diagnoster.server import create_app, model_for
 
 SETTINGS = Settings(model="openai:the-default", namespaces=("catalog", "shop"), phoenix_url="http://phoenix.test")
@@ -47,13 +48,13 @@ def openai_content(response) -> str:
 
 def report_in(content: str) -> RunReport:
     """The reply is JSON: the report plus the model, the cluster and the trace link."""
-    reply = json.loads(content)
+    reply = json.loads(unwrap(content))
     return RunReport.model_validate({k: v for k, v in reply.items() if k not in ("model", "cluster", "trace_url")})
 
 
 def test_the_openai_format_answers_with_a_summary_and_the_full_report():
     content = openai_content(client().post("/v1/chat/completions", json=ASK))
-    assert json.loads(content)["cluster"] == "live"
+    assert json.loads(unwrap(content))["cluster"] == "live"
     assert report_in(content).diagnosis.root_cause.resource == "service/catalog"
     report = report_in(content)
     assert report.status == "complete"
@@ -76,7 +77,7 @@ def test_recorded_mode_answers_from_the_snapshot_with_no_cluster():
     # Settings without the catalog namespace: the snapshot brings its own.
     settings = Settings(model="openai:the-default", namespaces=("elsewhere",), cluster_mode="recorded")
     content = openai_content(client(settings=settings, live=no_cluster).post("/v1/chat/completions", json=ASK))
-    assert json.loads(content)["cluster"] == "recorded"
+    assert json.loads(unwrap(content))["cluster"] == "recorded"
     report = report_in(content)
     assert report.status == "complete"
     assert report.tool_calls[0].sources  # the Service was found in the snapshot
@@ -131,7 +132,7 @@ def test_the_reply_names_the_model_that_answered():
     response = app.post("/v1/messages", json=CLAUDE_ASK)
     assert asked == ["anthropic:claude-haiku-5-5"]
     assert response.json()["model"] == "anthropic:claude-haiku-5-5"
-    assert json.loads(response.json()["content"][0]["text"])["model"] == "anthropic:claude-haiku-5-5"
+    assert json.loads(unwrap(response.json()["content"][0]["text"]))["model"] == "anthropic:claude-haiku-5-5"
 
 
 def test_an_openai_stream_carries_the_same_answer_in_openai_chunks():
@@ -276,7 +277,7 @@ def test_the_root_span_says_the_cluster_and_where_the_prompt_came_from(spans):
     assert root.attributes["diagnoster.cluster"] == "recorded"
     assert root.attributes["diagnoster.prompt_source"] == "request"
     # The reply links to this trace: Phoenix sends no trace context, so this is the only link.
-    assert json.loads(content)["trace_url"] == f"http://phoenix.test/redirects/traces/{format(root.context.trace_id, '032x')}"
+    assert json.loads(unwrap(content))["trace_url"] == f"http://phoenix.test/redirects/traces/{format(root.context.trace_id, '032x')}"
 
 
 def dataclasses_replace(settings, **changes):
@@ -332,3 +333,85 @@ def test_a_chat_run_carries_its_session_into_the_trace(spans):
     assert run.attributes["gen_ai.conversation.id"] == "chat-42"
     assert root.attributes["diagnoster.entry"] == "chat"
     assert reply["trace_url"].endswith(format(root.context.trace_id, "032x"))
+
+
+# ---- fixes: paused in the chat, denied everywhere else ---------------------------------
+
+from test_agent import asks_to_fix  # noqa: E402
+from test_remediation import payments  # noqa: E402
+
+ASK_RUN = {"question": QUESTION, "session_id": "chat-7"}
+
+
+def fixing_app(seen, world=None, clock=lambda: 0.0, settings=SETTINGS, **kw):
+    world = world or payments()
+    return world, TestClient(
+        create_app(
+            settings,
+            resolve_model=lambda name: asks_to_fix(seen),
+            live=lambda: selector_mismatch_world().cluster(),
+            remediator=world.cluster,
+            verify_fn=lambda reader: (True, ["pods ready 2/2"]),
+            clock=clock,
+            **kw,
+        )
+    )
+
+
+def test_the_chat_waits_for_approval_then_the_agent_applies_the_fix():
+    seen = []
+    world, app = fixing_app(seen)
+    asked = app.post("/v1/runs", json=ASK_RUN).json()
+    assert asked["status"] == "awaiting_approval"
+    assert asked["report"]["diagnosis"]["next_action"]["proposed_fix"]["to"] == "/health"
+    assert world.patches == []
+
+    done = app.post(f"/v1/runs/{asked['run_id']}/approval", json={"approved": True}).json()
+    assert done["status"] == "complete" and done["run_id"] == asked["run_id"]
+    assert done["report"]["remediation"]["status"] == "fixed"
+    assert len(world.patches) == 1
+    # One answer per run: a second click finds nothing to approve.
+    again = app.post(f"/v1/runs/{asked['run_id']}/approval", json={"approved": True})
+    assert again.status_code == 404 and len(world.patches) == 1
+
+
+def test_a_denied_fix_changes_nothing():
+    seen = []
+    world, app = fixing_app(seen)
+    run_id = app.post("/v1/runs", json=ASK_RUN).json()["run_id"]
+    done = app.post(f"/v1/runs/{run_id}/approval", json={"approved": False}).json()
+    assert done["report"]["remediation"]["status"] == "denied"
+    assert world.patches == []
+
+
+def test_a_waiting_fix_expires_after_30_minutes():
+    now = [0.0]
+    _, app = fixing_app([], clock=lambda: now[0])
+    run_id = app.post("/v1/runs", json=ASK_RUN).json()["run_id"]
+    now[0] = 30 * 60 + 1
+    response = app.post(f"/v1/runs/{run_id}/approval", json={"approved": True})
+    assert response.status_code == 404 and "expired" in response.json()["error"]["message"]
+
+
+@pytest.mark.parametrize("body", [{}, {"approved": "yes"}, None])
+def test_an_approval_needs_true_or_false(body):
+    _, app = fixing_app([])
+    assert app.post("/v1/runs/" + "a" * 32 + "/approval", json=body).status_code == 400
+
+
+def test_phoenix_and_evals_never_wait_the_fix_is_denied():
+    seen = []
+    world, app = fixing_app(seen)
+    report = report_in(openai_content(app.post("/v1/chat/completions", json=ASK)))
+    assert report.status == "complete" and report.remediation.status == "not_asked"
+    assert seen == ["No one can approve changes here, so nothing was changed. Give your final answer."]
+    assert world.patches == []
+
+
+def test_the_recorded_cluster_never_offers_the_fix():
+    seen = []
+    world, app = fixing_app(seen, settings=dataclasses_replace(SETTINGS, cluster_mode="recorded"))
+    reply = app.post("/v1/runs", json=ASK_RUN).json()
+    assert reply["status"] == "complete" and reply["report"]["remediation"]["status"] == "not_asked"
+    assert seen == ["The recorded cluster can't be changed, so nothing was changed. Give your final answer."]
+    assert world.patches == []

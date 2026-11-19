@@ -1,11 +1,11 @@
-"""The one fix the agent may apply, as a fixed workflow in code.
+"""The one fix the agent may apply: the body of its apply_fix tool.
 
-The model never holds a write tool. It can only propose a fix in its
-Diagnosis; this code decides whether that proposal is the allowed one, asks a
-person, applies exactly one field as the remediator account, and checks the
-result with fresh reads as the reader.
+The model can only ask: apply_fix needs a person's approval (a deferred tool,
+see agent.py), and our code checks the fix against the allowlist before anyone
+is asked. Once approved, this code applies exactly one field as the remediator
+account and checks the result with fresh reads as the reader.
 
-    allowlist -> explain -> approve (y/N) -> apply -> verify
+    allowlist -> (approval, in agent.py) -> apply -> verify
 """
 
 import re
@@ -29,7 +29,7 @@ VERIFY_TIMEOUT_S = 90
 FIELD_MANAGER = "diagnoster-remediator"
 VERIFY_INTERVAL_S = 3
 
-Status = Literal["not_allowed", "declined", "stale", "fixed", "not_fixed"]
+Status = Literal["not_allowed", "stale", "fixed", "not_fixed"]
 
 
 @dataclass
@@ -54,19 +54,6 @@ def check_allowed(diagnosis: Diagnosis | None) -> tuple[ProposedFix | None, str]
     if not PATH_PATTERN.match(fix.to):
         return None, f"the new path {fix.to!r} is not a plain path like /health"
     return fix, "allowed"
-
-
-def explain(fix: ProposedFix) -> str:
-    name = TARGET.split("/", 1)[1]
-    return "\n".join(
-        [
-            f"Proposed fix in namespace {NAMESPACE}:",
-            f"  {fix.target}  {fix.field}: {fix.from_} -> {fix.to}",
-            "Expected effect: the readiness probe passes, the pods become Ready,",
-            f"and Service {name} gets ready endpoints, so traffic reaches the pods again.",
-            "This changes only that one field; the Deployment rolls out new pods.",
-        ]
-    )
 
 
 def patch_body(container: str, path: str) -> dict[str, Any]:
@@ -131,20 +118,18 @@ def verify(
         sleep(interval_s)
 
 
-def remediate(
-    diagnosis: Diagnosis | None,
+def fix(
+    diagnosis: Diagnosis,
     *,
     remediator: Callable[[], Cluster],
-    reader: Cluster,
-    ask: Callable[[str], str] = input,
-    say: Callable[[str], None] = print,
+    reader: Callable[[], Cluster],
     verify_fn: Callable[[Cluster], tuple[bool, list[str]]] = verify,
 ) -> Outcome:
-    """Run the workflow. `remediator` is called only after approval, so no write access is loaded before."""
+    """Apply an approved fix and check it. The remediator account is loaded here and nowhere else."""
     tracer = trace.get_tracer("diagnoster")
     with tracer.start_as_current_span("remediate") as span:
         span.set_attribute("openinference.span.kind", "CHAIN")
-        outcome = _remediate(diagnosis, tracer, remediator, reader, ask, say, verify_fn)
+        outcome = _fix(diagnosis, tracer, remediator, reader, verify_fn)
         span.set_attribute("diagnoster.remediation.status", outcome.status)
         span.set_attribute("output.value", outcome.detail)
         if outcome.status in ("stale", "not_fixed"):
@@ -152,18 +137,12 @@ def remediate(
     return outcome
 
 
-def _remediate(diagnosis, tracer, remediator, reader, ask, say, verify_fn) -> Outcome:
+def _fix(diagnosis, tracer, remediator, reader, verify_fn) -> Outcome:
+    # Checked again here, though agent.py checks before asking: this is the code that writes.
     fix, reason = check_allowed(diagnosis)
     if fix is None:
         return Outcome("not_allowed", f"not applied: {reason}; it stays a recommendation")
     trace.get_current_span().set_attribute("input.value", f"{fix.target} {fix.field}: {fix.from_} -> {fix.to}")
-
-    say(explain(fix))
-    with tracer.start_as_current_span("approve") as span:
-        answer = ask("Apply? [y/N] ").strip().lower()
-        span.set_attribute("diagnoster.approval.answer", answer or "(empty)")
-    if answer != "y":
-        return Outcome("declined", "not applied: not approved")
 
     with tracer.start_as_current_span("apply") as span:
         try:
@@ -175,12 +154,10 @@ def _remediate(diagnosis, tracer, remediator, reader, ask, say, verify_fn) -> Ou
         span.set_attribute("output.value", detail)
     if not applied:
         return Outcome("stale", detail)
-    say(detail)
 
     with tracer.start_as_current_span("verify") as span:
-        say(f"Verifying for up to {VERIFY_TIMEOUT_S} s...")
-        fixed, seen = verify_fn(reader)
+        fixed, seen = verify_fn(reader())
         span.set_attribute("output.value", seen[-1] if seen else "")
     if fixed:
-        return Outcome("fixed", f"fixed: {seen[-1]}", seen)
-    return Outcome("not_fixed", f"not fixed after {VERIFY_TIMEOUT_S} s: {seen[-1] if seen else 'nothing seen'}", seen)
+        return Outcome("fixed", f"{detail}; fixed: {seen[-1]}", seen)
+    return Outcome("not_fixed", f"{detail}; not fixed after {VERIFY_TIMEOUT_S} s: {seen[-1] if seen else 'nothing seen'}", seen)

@@ -4,7 +4,8 @@ Two objects, with different authors:
 
 - Diagnosis: written by the model. Root cause, evidence and next action.
 - RunReport: written by our code around the run. Whether it finished, the
-  diagnosis if it did, every tool call that really happened, and the trace id.
+  diagnosis if it did, every tool call that really happened, the trace id,
+  and what became of the fix the agent asked to apply.
 
 The report is the answer; the trace is the story. Evidence cites tool-call ids
 only, never sources: our code records each call's sources (which Kubernetes
@@ -125,18 +126,40 @@ class ToolCall(_Strict):
 
 StopReason = Literal["request_limit", "tool_call_limit", "timeout", "invalid_output", "model_error"]
 
+# What became of a fix the agent asked to apply (its apply_fix tool):
+# - asked: waiting for the person (the run is awaiting_approval)
+# - not_asked: no one could approve it here (evals, the recorded cluster), so it was denied
+# - not_allowed: our allowlist refused it before anyone was asked
+# - denied: the person said no
+# - stale: approved, but the live value had changed, so nothing was changed
+# - fixed / not_fixed: approved and applied; fresh reads did or didn't show it working
+RemediationStatus = Literal["asked", "not_asked", "not_allowed", "denied", "stale", "fixed", "not_fixed"]
+
+
+class Remediation(_Strict):
+    """Written by our code, never by the model: what happened to the fix."""
+
+    status: RemediationStatus
+    detail: str
+    fix: ProposedFix | None = None
+    # The agent's own words, given when it asked: what the change should do.
+    expected_effect: str | None = None
+
 
 class RunReport(_Strict):
-    status: Literal["complete", "stopped"]
+    # awaiting_approval: the agent asked to apply its fix and waits for a person;
+    # the diagnosis is the one it asked with.
+    status: Literal["complete", "stopped", "awaiting_approval"]
     stop_reason: StopReason | None = None
     diagnosis: Diagnosis | None = None
     tool_calls: list[ToolCall] = []
     trace_id: str | None = None
+    remediation: Remediation | None = None
 
     @model_validator(mode="after")
     def _status_matches(self) -> "RunReport":
-        if self.status == "complete" and (self.diagnosis is None or self.stop_reason is not None):
-            raise ValueError("a complete run has a diagnosis and no stop_reason")
+        if self.status in ("complete", "awaiting_approval") and (self.diagnosis is None or self.stop_reason is not None):
+            raise ValueError(f"a {self.status} run has a diagnosis and no stop_reason")
         if self.status == "stopped" and (self.diagnosis is not None or self.stop_reason is None):
             raise ValueError("a stopped run has a stop_reason and no diagnosis")
         return self

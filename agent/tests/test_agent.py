@@ -16,9 +16,9 @@ from pydantic_ai.messages import ModelMessage, ModelResponse, RetryPromptPart, T
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from diagnoster import tracing
-from diagnoster.agent import diagnose
+from diagnoster.agent import diagnose, resume
 from diagnoster.config import Settings
-from diagnoster.contract import Source
+from diagnoster.contract import Remediation, Source
 
 SETTINGS = Settings(namespaces=("catalog", "shop"))
 QUESTION = "The storefront in namespace catalog can't reach the catalog service. Why?"
@@ -97,7 +97,8 @@ async def test_the_namespace_is_an_enum_of_the_allowed_namespaces():
 
     report = await run(FunctionModel(model), Settings(namespaces=("catalog", "shop"), request_limit=3))
     assert schemas["list_pods"]["properties"]["namespace"]["enum"] == ["catalog", "shop"]
-    assert len(schemas) == 7
+    assert len(schemas) == 8  # seven reads, and apply_fix, which needs approval
+    assert "apply_fix" in schemas
     # A namespace outside the enum never reaches the cluster: no call is recorded.
     assert report.tool_calls == []
 
@@ -221,3 +222,107 @@ async def test_after_runs_inside_the_root_span_with_the_report(spans):
     finished = {s.name: s for s in exporter.get_finished_spans()}
     assert seen == ["complete"]
     assert finished["remediate"].parent.span_id == finished["diagnose"].context.span_id
+
+
+# ---- apply_fix: the one tool that changes something, only with approval ---------------
+
+FIX = {"target": "deployment/payments-api", "field": "readinessProbe.httpGet.path", "from": "/healthz", "to": "/health"}
+
+
+def remediate_answer(**fix_changes) -> dict:
+    return {
+        "root_cause": {"category": "bad_probe", "resource": "deployment/payments-api", "explanation": "Wrong probe path."},
+        "evidence": [{"fact": "Pods are not ready", "tool_call_ids": ["tc_1"]}],
+        "next_action": {"summary": "Fix the probe path.", "kind": "remediate", "proposed_fix": FIX | fix_changes},
+    }
+
+
+def asks_to_fix(seen: list, **fix_changes):
+    """Reads once, asks to apply its fix, then answers. `seen` gets what apply_fix returned."""
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        n = sum(1 for m in messages if isinstance(m, ModelResponse))
+        if n == 0:
+            return ModelResponse(parts=[ToolCallPart("list_pods", {"namespace": "catalog"})])
+        if n == 1:
+            args = {"diagnosis": remediate_answer(**fix_changes), "expected_effect": "The pods become ready."}
+            return ModelResponse(parts=[ToolCallPart("apply_fix", args, tool_call_id="fix_1")])
+        seen.extend(p.content for p in messages[-1].parts if getattr(p, "tool_name", None) == "apply_fix")
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, remediate_answer(**fix_changes))])
+
+    return FunctionModel(model)
+
+
+def never_fix(diagnosis):
+    raise AssertionError("nothing may be applied")
+
+
+async def test_where_no_one_can_approve_the_fix_is_denied_and_the_run_finishes():
+    seen = []
+    report = await run(asks_to_fix(seen), fixer=never_fix)
+    assert report.status == "complete"
+    assert report.remediation.status == "not_asked"
+    assert report.remediation.fix.to == "/health"
+    assert seen == ["No one can approve changes here, so nothing was changed. Give your final answer."]
+
+
+async def test_a_fix_outside_the_allowlist_is_refused_before_anyone_is_asked():
+    seen, paused = [], []
+    report = await run(asks_to_fix(seen, target="deployment/checkout"), no_approver=None, on_pause=paused.append, fixer=never_fix)
+    assert report.status == "complete" and paused == []
+    assert report.remediation.status == "not_allowed"
+    assert "only deployment/payments-api may be changed" in seen[0]
+
+
+async def test_with_a_person_the_run_pauses_then_applies_the_approved_fix():
+    seen, paused, applied = [], [], []
+
+    def fixer(diagnosis):
+        applied.append(diagnosis.next_action.proposed_fix.to)
+        return Remediation(status="fixed", detail="patched; pods ready 2/2", fix=diagnosis.next_action.proposed_fix)
+
+    report = await run(asks_to_fix(seen), no_approver=None, on_pause=paused.append, fixer=fixer)
+    assert report.status == "awaiting_approval"
+    assert report.remediation.status == "asked"
+    assert report.remediation.expected_effect == "The pods become ready."
+    assert report.diagnosis.next_action.proposed_fix.to == "/health"
+    assert applied == []  # nothing happens before the answer
+    [waiting] = paused
+
+    final = await resume(waiting, approved=True)
+    assert applied == ["/health"]
+    assert final.status == "complete"
+    assert final.remediation.status == "fixed"
+    assert final.remediation.expected_effect == "The pods become ready."
+    assert seen == ["fixed: patched; pods ready 2/2"]
+    assert [c.id for c in final.tool_calls] == ["tc_1"]  # the record carries over
+
+
+async def test_a_denied_fix_changes_nothing_and_the_agent_says_so():
+    seen, paused = [], []
+    await run(asks_to_fix(seen), no_approver=None, on_pause=paused.append, fixer=never_fix)
+    final = await resume(paused[0], approved=False)
+    assert final.status == "complete"
+    assert final.remediation.status == "denied"
+    assert seen == ["The user denied the fix. Nothing was changed. Give your final answer."]
+
+
+async def test_a_remediate_answer_must_offer_the_fix_first():
+    """The model answers remediate without asking; our rule sends it back to apply_fix."""
+    told = []
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        n = sum(1 for m in messages if isinstance(m, ModelResponse))
+        if n == 0:
+            return ModelResponse(parts=[ToolCallPart("list_pods", {"namespace": "catalog"})])
+        if n == 1:  # skips apply_fix
+            return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, remediate_answer())])
+        if n == 2:
+            told.extend(str(p.content) for p in messages[-1].parts)
+            args = {"diagnosis": remediate_answer(), "expected_effect": "The pods become ready."}
+            return ModelResponse(parts=[ToolCallPart("apply_fix", args, tool_call_id="fix_1")])
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, remediate_answer())])
+
+    report = await run(FunctionModel(model), fixer=never_fix)
+    assert "call apply_fix with this diagnosis" in told[0]
+    assert report.status == "complete" and report.remediation.status == "not_asked"

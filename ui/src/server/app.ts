@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import fastifyStatic from "@fastify/static";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import {
   type AgentQuestion,
   type ClusterHealth,
@@ -71,8 +71,9 @@ async function evalsUrl(phoenixUrl: string, internal: string): Promise<string | 
   return `${phoenixUrl}/playground?promptId=${encodeURIComponent(promptId)}&datasetId=${encodeURIComponent(datasetId)}`;
 }
 
-// A run can take the agent's whole time limit (80 s in Compose) plus the model's last answer.
-const AGENT_TIMEOUT_MS = 180_000;
+// A run can take the agent's whole time limit (80 s in Compose); an approved
+// fix adds up to 90 s of checking that it worked.
+const AGENT_TIMEOUT_MS = 240_000;
 
 export function buildApp({
   service,
@@ -124,16 +125,14 @@ export function buildApp({
 
   // The chat asks the agent through this server, so the browser only ever talks
   // to us (and the header check above covers the chat too).
-  app.post<{ Body: Partial<AgentQuestion> }>("/api/agent/runs", async (req, reply) => {
+  async function toAgent(reply: FastifyReply, path: string, body: unknown) {
     if (!agentUrl) return reply.code(503).send({ error: "No agent is configured (AGENT_URL)." });
-    const { question, session_id } = req.body ?? {};
-    if (typeof question !== "string" || !question.trim()) return reply.code(400).send({ error: "Ask a question." });
     let res: Response;
     try {
-      res = await fetch(`${agentUrl}/v1/runs`, {
+      res = await fetch(`${agentUrl}${path}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, session_id }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
       });
     } catch (err) {
@@ -144,9 +143,23 @@ export function buildApp({
           : `The agent isn't reachable at ${agentUrl}. Start it with \`docker compose up -d agent\`.`,
       });
     }
-    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-    if (!res.ok) return reply.code(res.status).send({ error: body.error?.message ?? `The agent failed (${res.status}).` });
-    return body;
+    const answer = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    if (!res.ok) return reply.code(res.status).send({ error: answer.error?.message ?? `The agent failed (${res.status}).` });
+    return answer;
+  }
+
+  app.post<{ Body: Partial<AgentQuestion> }>("/api/agent/runs", async (req, reply) => {
+    const { question, session_id } = req.body ?? {};
+    if (typeof question !== "string" || !question.trim()) return reply.code(400).send({ error: "Ask a question." });
+    return toAgent(reply, "/v1/runs", { question, session_id });
+  });
+
+  // The person's answer to the fix a run waits on. The agent applies it, not this server.
+  app.post<{ Params: { id: string }; Body: { approved?: unknown } }>("/api/agent/runs/:id/approval", async (req, reply) => {
+    if (!/^[0-9a-f]{32}$/.test(req.params.id)) return reply.code(404).send({ error: "No such run." });
+    const approved = req.body?.approved;
+    if (typeof approved !== "boolean") return reply.code(400).send({ error: "Say approved: true or false." });
+    return toAgent(reply, `/v1/runs/${req.params.id}/approval`, { approved });
   });
 
   app.get("/api/scenarios", () => service.summaries());

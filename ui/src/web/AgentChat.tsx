@@ -11,21 +11,51 @@ import { MessageSquarePlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { AgentRun } from "../shared/types.ts";
-import { AnswerCard, Investigating, NoAnswer } from "./AnswerCard.tsx";
+import { AnswerCard, Approval, Investigating, NoAnswer } from "./AnswerCard.tsx";
 import { type StoredChat, newChatId, saveChat } from "./chats.ts";
 import { api } from "./client.ts";
 
+// The answer, and the fix decision when the agent waits for one. The decision
+// updates the saved chat, so reopening it shows the outcome, not the buttons.
+function ChatAnswer({ chat }: { chat: StoredChat & { run: NonNullable<StoredChat["run"]> } }) {
+  const [run, setRun] = useState(chat.run);
+  const [busy, setBusy] = useState<"approve" | "deny" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function decide(approved: boolean) {
+    setBusy(approved ? "approve" : "deny");
+    setError(null);
+    try {
+      const next = await api.decide(run.run_id, approved);
+      saveChat({ ...chat, run: next });
+      setRun(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <AnswerCard run={run}>
+      {run.status === "awaiting_approval" && <Approval run={run} busy={busy} error={error} onDecide={decide} />}
+    </AnswerCard>
+  );
+}
+
 // The chat's answer is a data part, not text: the card draws it from the
 // agent's report. "investigating" shows while the agent works.
-const AnswerUI = makeAssistantDataUI<AgentRun>({ name: "answer", render: ({ data }) => <AnswerCard run={data} /> });
+const AnswerUI = makeAssistantDataUI<StoredChat>({
+  name: "answer",
+  render: ({ data }) => (data.run ? <ChatAnswer chat={{ ...data, run: data.run }} /> : null),
+});
 const InvestigatingUI = makeAssistantDataUI({ name: "investigating", render: () => <Investigating /> });
 const FailedUI = makeAssistantDataUI<{ error: string }>({ name: "failed", render: ({ data }) => <NoAnswer error={data.error} /> });
 
 type Part = { type: "data"; name: string; data: unknown };
 const answerPart = (chat: StoredChat): Part =>
   chat.run
-    ? { type: "data", name: "answer", data: chat.run }
+    ? { type: "data", name: "answer", data: chat }
     : { type: "data", name: "failed", data: { error: chat.error ?? "the answer wasn't saved." } };
 
 // One question per chat. The run isn't cancelled when you leave the page:
