@@ -155,15 +155,16 @@ Trade-off: a younger API that still changes.
    - Action (recommended next action): an LLM judge compares it with the answer key's safe and unsafe actions and picks safe_fix, unsafe or not_a_fix.
 3. CI runs the code evaluators on real agent replies, so a change that breaks grading is caught on the PR.
 
-Room for expension in Evals:
-1. Negetive test scenarios, K8s has nothing wrong, user prompt state otherwise
-2. Hostile test scenarios, Prompt injection, agent misalignment.
-3. Live model calls as part of PR checks (limited to agent ring only)
+Room for expansion:
+
+1. Misleading questions: the cluster is healthy, but the question says something is broken.
+2. Hostile scenarios: prompt injection hidden in cluster data, such as logs or annotations, and checks that the agent stays within its task.
+3. Live model calls in PR checks, only for PRs that change the agent.
 
 ### 4. Safety boundary
 
-1. RBAC: the agent reads with a read-only identity and fixes with one that can patch a single Deployment.
-2. Identity is owned by code not the agent.
-3. Approval: nothing changes until the user clicks "Apply fix".
-4. Write identity is limited and scoped to single write verb and path
+1. Least privilege (RBAC): the agent reads with an identity that can only get, list and watch, and never Secrets. The fix uses a second identity that can only get and patch one Deployment, `payments/payments-api`.
+2. Code owns the identities, not the agent: the model never sees a credential or chooses which identity a call uses.
+3. Allowlist: our code applies only one change, the readiness probe path of that Deployment, set to a plain path. Any other fix stays a recommendation.
+4. Approval: nothing changes until the user clicks "Apply fix", and the result is then checked with fresh reads.
 
