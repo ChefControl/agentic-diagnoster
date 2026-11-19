@@ -1,0 +1,150 @@
+{
+  "model": "openai:gpt-6-luna",
+  "cluster": "live",
+  "trace_url": null,
+  "status": "complete",
+  "stop_reason": null,
+  "diagnosis": {
+    "root_cause": {
+      "category": "selector_mismatch",
+      "resource": "service/catalog",
+      "explanation": "The catalog Service selector is app=catalog-api, while the ready catalog pods are labeled app=catalog. The selector therefore matches no pods, leaving the Service with no ready endpoints."
+    },
+    "evidence": [
+      {
+        "fact": "The catalog Service selects app=catalog-api and reports no ready endpoints.",
+        "tool_call_ids": [
+          "tc_4"
+        ]
+      },
+      {
+        "fact": "The catalog Deployment has two ready replicas whose pod template label is app=catalog.",
+        "tool_call_ids": [
+          "tc_2"
+        ]
+      },
+      {
+        "fact": "Both catalog pods are Running and ready with label app=catalog.",
+        "tool_call_ids": [
+          "tc_5"
+        ]
+      }
+    ],
+    "next_action": {
+      "summary": "The proposed selector change was not applied. A cluster administrator should change service/catalog selector.app from catalog-api to catalog so it selects the ready catalog pods.",
+      "kind": "recommend",
+      "proposed_fix": null
+    }
+  },
+  "tool_calls": [
+    {
+      "id": "tc_1",
+      "provider_id": "call_fLiEMkzCX6DUzs7J71D9wgD8",
+      "tool": "list_workloads",
+      "args": {
+        "namespace": "catalog"
+      },
+      "sources": []
+    },
+    {
+      "id": "tc_2",
+      "provider_id": "call_wgFOK8zkBPANk6l4dKka4Xhq",
+      "tool": "get_deployment",
+      "args": {
+        "namespace": "catalog",
+        "name": "catalog"
+      },
+      "sources": [
+        {
+          "kind": "Deployment",
+          "name": "catalog",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Deployment",
+          "name": "catalog",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_3",
+      "provider_id": "call_B5wx354rrnrlnpKPFn0seJ6u",
+      "tool": "get_deployment",
+      "args": {
+        "namespace": "catalog",
+        "name": "storefront"
+      },
+      "sources": [
+        {
+          "kind": "Deployment",
+          "name": "storefront",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Deployment",
+          "name": "storefront",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_4",
+      "provider_id": "call_LTog7C5LI84RhAUFMVOeza3W",
+      "tool": "get_service",
+      "args": {
+        "namespace": "catalog",
+        "name": "catalog"
+      },
+      "sources": [
+        {
+          "kind": "Service",
+          "name": "catalog",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Service",
+          "name": "catalog",
+          "aspect": "endpoints"
+        }
+      ]
+    },
+    {
+      "id": "tc_5",
+      "provider_id": "call_WvusfCkHx7SIvpIz9XZ3w21y",
+      "tool": "list_pods",
+      "args": {
+        "namespace": "catalog"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "catalog-78878ddf99-m5mbt",
+          "aspect": "status"
+        },
+        {
+          "kind": "Pod",
+          "name": "catalog-78878ddf99-qm68d",
+          "aspect": "status"
+        },
+        {
+          "kind": "Pod",
+          "name": "storefront-785b87fd5b-pdn42",
+          "aspect": "status"
+        }
+      ]
+    }
+  ],
+  "trace_id": null,
+  "remediation": {
+    "status": "not_allowed",
+    "detail": "Not applied: only deployment/payments-api may be changed, not service/catalog. It stays a recommendation.",
+    "fix": {
+      "target": "service/catalog",
+      "field": "selector.app",
+      "from": "catalog-api",
+      "to": "catalog"
+    },
+    "expected_effect": "The Service should select the two ready catalog pods and gain endpoints, allowing the storefront to reach the catalog service."
+  }
+}

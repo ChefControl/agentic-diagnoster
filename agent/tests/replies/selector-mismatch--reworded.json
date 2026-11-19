@@ -1,0 +1,253 @@
+{
+  "model": "openai:gpt-6-luna",
+  "cluster": "live",
+  "trace_url": null,
+  "status": "complete",
+  "stop_reason": null,
+  "diagnosis": {
+    "root_cause": {
+      "category": "selector_mismatch",
+      "resource": "service/catalog",
+      "explanation": "The catalog Service selects pods labeled app=catalog-api, but the catalog Deployment's pods are labeled app=catalog. With no ready Service endpoints, storefront requests to the catalog fail, which explains the missing products."
+    },
+    "evidence": [
+      {
+        "fact": "The catalog Service selector is app=catalog-api and it has no ready endpoints.",
+        "tool_call_ids": [
+          "tc_7"
+        ]
+      },
+      {
+        "fact": "The catalog Deployment's pod template labels are app=catalog,tier=backend, with 2 replicas ready.",
+        "tool_call_ids": [
+          "tc_8"
+        ]
+      },
+      {
+        "fact": "The storefront logs repeated failures reaching http://catalog/ because the upstream is unreachable.",
+        "tool_call_ids": [
+          "tc_9"
+        ]
+      }
+    ],
+    "next_action": {
+      "summary": "Update service/catalog spec.selector.app from catalog-api to catalog. The proposed change could not be applied here, so an authorized operator needs to make it.",
+      "kind": "recommend",
+      "proposed_fix": null
+    }
+  },
+  "tool_calls": [
+    {
+      "id": "tc_1",
+      "provider_id": "call_rKj8JCp94fhc4Gl5XJ9H4Qrj",
+      "tool": "list_workloads",
+      "args": {
+        "namespace": "shop"
+      },
+      "sources": []
+    },
+    {
+      "id": "tc_2",
+      "provider_id": "call_aVGTNDq4w8EXlZDyHZtoqzn8",
+      "tool": "list_pods",
+      "args": {
+        "namespace": "shop"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "checkout-868f7c7c-v5hjc",
+          "aspect": "status"
+        },
+        {
+          "kind": "Pod",
+          "name": "frontend-6458597456-lwf74",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_3",
+      "provider_id": "call_z3tZOthosfLlLhpdc1b6IoKj",
+      "tool": "list_workloads",
+      "args": {
+        "namespace": "catalog"
+      },
+      "sources": []
+    },
+    {
+      "id": "tc_4",
+      "provider_id": "call_mV2LbUd95u8Z3hAqC8ISJLom",
+      "tool": "get_deployment",
+      "args": {
+        "namespace": "shop",
+        "name": "frontend"
+      },
+      "sources": [
+        {
+          "kind": "Deployment",
+          "name": "frontend",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Deployment",
+          "name": "frontend",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_5",
+      "provider_id": "call_gTOYUjQCGgDLVhouVovc9XVL",
+      "tool": "list_pods",
+      "args": {
+        "namespace": "catalog"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "catalog-78878ddf99-m5mbt",
+          "aspect": "status"
+        },
+        {
+          "kind": "Pod",
+          "name": "catalog-78878ddf99-qm68d",
+          "aspect": "status"
+        },
+        {
+          "kind": "Pod",
+          "name": "storefront-785b87fd5b-pdn42",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_6",
+      "provider_id": "call_ZSk0xkPM2jmkSRyuwgZZv8IW",
+      "tool": "get_deployment",
+      "args": {
+        "namespace": "catalog",
+        "name": "storefront"
+      },
+      "sources": [
+        {
+          "kind": "Deployment",
+          "name": "storefront",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Deployment",
+          "name": "storefront",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_7",
+      "provider_id": "call_xIiZM4K4IgBa08XqHuMFbqJW",
+      "tool": "get_service",
+      "args": {
+        "namespace": "catalog",
+        "name": "catalog"
+      },
+      "sources": [
+        {
+          "kind": "Service",
+          "name": "catalog",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Service",
+          "name": "catalog",
+          "aspect": "endpoints"
+        }
+      ]
+    },
+    {
+      "id": "tc_8",
+      "provider_id": "call_xlVhhSnaxGQPqwhfiBYPemfX",
+      "tool": "get_deployment",
+      "args": {
+        "namespace": "catalog",
+        "name": "catalog"
+      },
+      "sources": [
+        {
+          "kind": "Deployment",
+          "name": "catalog",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Deployment",
+          "name": "catalog",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_9",
+      "provider_id": "call_zspKWR2rFaDyDPOExn62xwrQ",
+      "tool": "get_pod_logs",
+      "args": {
+        "namespace": "catalog",
+        "workload": "storefront"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "storefront-785b87fd5b-pdn42",
+          "aspect": "logs"
+        }
+      ]
+    },
+    {
+      "id": "tc_10",
+      "provider_id": "call_kAFU95yFjOSfavMi9bLn0aWP",
+      "tool": "get_pod_logs",
+      "args": {
+        "namespace": "shop",
+        "workload": "frontend"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "frontend-6458597456-lwf74",
+          "aspect": "logs"
+        }
+      ]
+    },
+    {
+      "id": "tc_11",
+      "provider_id": "call_ExWYDeo7McbylWcyrlnthj7M",
+      "tool": "get_pod_logs",
+      "args": {
+        "namespace": "catalog",
+        "workload": "catalog"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "catalog-78878ddf99-m5mbt",
+          "aspect": "logs"
+        },
+        {
+          "kind": "Pod",
+          "name": "catalog-78878ddf99-qm68d",
+          "aspect": "logs"
+        }
+      ]
+    }
+  ],
+  "trace_id": null,
+  "remediation": {
+    "status": "not_allowed",
+    "detail": "Not applied: only deployment/payments-api may be changed, not service/catalog. It stays a recommendation.",
+    "fix": {
+      "target": "service/catalog",
+      "field": "spec.selector.app",
+      "from": "catalog-api",
+      "to": "catalog"
+    },
+    "expected_effect": "The Service should select the ready catalog pods and gain endpoints, allowing the storefront to reach the catalog and display products."
+  }
+}

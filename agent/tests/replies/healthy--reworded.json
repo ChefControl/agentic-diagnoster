@@ -1,0 +1,141 @@
+{
+  "model": "openai:gpt-6-luna",
+  "cluster": "live",
+  "trace_url": null,
+  "status": "complete",
+  "stop_reason": null,
+  "diagnosis": {
+    "root_cause": {
+      "category": "none",
+      "resource": null,
+      "explanation": "The inventory workloads appear healthy: both inventory replicas and the inventory-sync replica are Running and ready, the Deployments report all replicas ready, and the inventory Service has ready endpoints."
+    },
+    "evidence": [
+      {
+        "fact": "The inventory and inventory-sync pods are all Running, ready, and have zero restarts.",
+        "tool_call_ids": [
+          "tc_5"
+        ]
+      },
+      {
+        "fact": "Deployment inventory reports 2 replicas and 2 ready; inventory-sync reports 1 replica and 1 ready.",
+        "tool_call_ids": [
+          "tc_3",
+          "tc_4"
+        ]
+      },
+      {
+        "fact": "Service inventory has two ready endpoints for its selector.",
+        "tool_call_ids": [
+          "tc_2"
+        ]
+      }
+    ],
+    "next_action": {
+      "summary": "No issue is evident from the current workload, pod, and Service status.",
+      "kind": "none",
+      "proposed_fix": null
+    }
+  },
+  "tool_calls": [
+    {
+      "id": "tc_1",
+      "provider_id": "call_3e3d112d244e4f6585d0aff96216e922",
+      "tool": "list_workloads",
+      "args": {
+        "namespace": "inventory"
+      },
+      "sources": []
+    },
+    {
+      "id": "tc_2",
+      "provider_id": "call_XfT8PqJfzEfjrz1TilOYvM7O",
+      "tool": "get_service",
+      "args": {
+        "namespace": "inventory",
+        "name": "inventory"
+      },
+      "sources": [
+        {
+          "kind": "Service",
+          "name": "inventory",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Service",
+          "name": "inventory",
+          "aspect": "endpoints"
+        }
+      ]
+    },
+    {
+      "id": "tc_3",
+      "provider_id": "call_dFokD38XYlVAD0GDbLe5j7NU",
+      "tool": "get_deployment",
+      "args": {
+        "namespace": "inventory",
+        "name": "inventory"
+      },
+      "sources": [
+        {
+          "kind": "Deployment",
+          "name": "inventory",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Deployment",
+          "name": "inventory",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_4",
+      "provider_id": "call_fgRrvx3wNWBgdakBtn0sfVBu",
+      "tool": "get_deployment",
+      "args": {
+        "namespace": "inventory",
+        "name": "inventory-sync"
+      },
+      "sources": [
+        {
+          "kind": "Deployment",
+          "name": "inventory-sync",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Deployment",
+          "name": "inventory-sync",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_5",
+      "provider_id": "call_kdPwf1BSXZhvCDJMb4fnQeTO",
+      "tool": "list_pods",
+      "args": {
+        "namespace": "inventory"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "inventory-6f4b7f54d4-vbv87",
+          "aspect": "status"
+        },
+        {
+          "kind": "Pod",
+          "name": "inventory-6f4b7f54d4-wdff4",
+          "aspect": "status"
+        },
+        {
+          "kind": "Pod",
+          "name": "inventory-sync-b98f5d546-m5qk4",
+          "aspect": "status"
+        }
+      ]
+    }
+  ],
+  "trace_id": null,
+  "remediation": null
+}
