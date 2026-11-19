@@ -90,11 +90,36 @@ jobs:
         if: failure()
         run: docker logs agent; docker logs ui
 
+  # Did this PR touch anything the cluster job checks? It takes ~1.5 min, so a
+  # PR that only changes the agent or the chat skips it.
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      cluster: ${{ steps.filter.outputs.cluster }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            cluster:
+              - cluster.sh
+              - cluster/**
+              - rbac/**
+              - scenarios/**
+              - ui/src/server/**
+              - ui/package.json
+              - ui/package-lock.json
+              - .github/workflows/ci.yml
+
   # Proves the safety boundary holds and every failure scenario still
   # reproduces, using the same code the UI uses. No LLM involved.
+  # Always on main and when run by hand; on a PR, only when `changes` says so.
   cluster:
+    needs: [build, changes]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.cluster == 'true') }}
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
