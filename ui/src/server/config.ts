@@ -21,6 +21,8 @@ export const config = {
     /\/$/,
     "",
   ),
+  // The agent service, which answers the chat. Compose sets http://agent:8000.
+  agentUrl: (process.env.AGENT_URL ?? "http://localhost:8000").replace(/\/$/, ""),
   webDir: process.env.WEB_DIR ?? resolve(repoRoot, "ui/dist/web"),
   production: process.env.NODE_ENV === "production",
 };

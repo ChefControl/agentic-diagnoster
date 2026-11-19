@@ -1,7 +1,13 @@
 import { existsSync } from "node:fs";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
-import { type ClusterHealth, type PhoenixStatus, REQUEST_HEADER, REQUEST_HEADER_VALUE } from "../shared/types.ts";
+import {
+  type AgentQuestion,
+  type ClusterHealth,
+  type PhoenixStatus,
+  REQUEST_HEADER,
+  REQUEST_HEADER_VALUE,
+} from "../shared/types.ts";
 import { describeClusterError } from "./kube.ts";
 import { ScenarioBusyError, type ScenarioService, UnknownScenarioError } from "./service.ts";
 
@@ -9,6 +15,7 @@ interface Options {
   service: ScenarioService;
   phoenixUrl?: string; // the link the browser opens
   phoenixInternalUrl?: string; // where the API checks Phoenix; defaults to phoenixUrl
+  agentUrl?: string; // the agent service; the chat's questions go there
   webDir?: string; // serve the built UI from here (production)
   logger?: boolean;
 }
@@ -64,7 +71,17 @@ async function evalsUrl(phoenixUrl: string, internal: string): Promise<string | 
   return `${phoenixUrl}/playground?promptId=${encodeURIComponent(promptId)}&datasetId=${encodeURIComponent(datasetId)}`;
 }
 
-export function buildApp({ service, phoenixUrl, phoenixInternalUrl, webDir, logger = false }: Options): FastifyInstance {
+// A run can take the agent's whole time limit (80 s in Compose) plus the model's last answer.
+const AGENT_TIMEOUT_MS = 180_000;
+
+export function buildApp({
+  service,
+  phoenixUrl,
+  phoenixInternalUrl,
+  agentUrl,
+  webDir,
+  logger = false,
+}: Options): FastifyInstance {
   const app = Fastify({ logger });
 
   app.addHook("onRequest", async (req, reply) => {
@@ -103,6 +120,33 @@ export function buildApp({ service, phoenixUrl, phoenixInternalUrl, webDir, logg
       () => false,
     );
     return { url: phoenixUrl, reachable, evalsUrl: reachable ? await evalsUrl(phoenixUrl, internal) : null };
+  });
+
+  // The chat asks the agent through this server, so the browser only ever talks
+  // to us (and the header check above covers the chat too).
+  app.post<{ Body: Partial<AgentQuestion> }>("/api/agent/runs", async (req, reply) => {
+    if (!agentUrl) return reply.code(503).send({ error: "No agent is configured (AGENT_URL)." });
+    const { question, session_id } = req.body ?? {};
+    if (typeof question !== "string" || !question.trim()) return reply.code(400).send({ error: "Ask a question." });
+    let res: Response;
+    try {
+      res = await fetch(`${agentUrl}/v1/runs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question, session_id }),
+        signal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
+      });
+    } catch (err) {
+      const timedOut = err instanceof Error && err.name === "TimeoutError";
+      return reply.code(timedOut ? 504 : 503).send({
+        error: timedOut
+          ? "The agent took too long to answer."
+          : `The agent isn't reachable at ${agentUrl}. Start it with \`docker compose up -d agent\`.`,
+      });
+    }
+    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    if (!res.ok) return reply.code(res.status).send({ error: body.error?.message ?? `The agent failed (${res.status}).` });
+    return body;
   });
 
   app.get("/api/scenarios", () => service.summaries());

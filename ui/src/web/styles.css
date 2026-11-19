@@ -618,6 +618,173 @@ details[open] > summary .disclosure {
   margin-top: 24px;
 }
 
+/* Recent questions under "Ask the agent": labels line up with its label. */
+.chat-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* lets long questions end in an ellipsis */
+  gap: 2px;
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+}
+
+.chat-item {
+  height: 32px;
+  padding-left: 36px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chat-item[aria-current="page"] {
+  color: var(--ink);
+}
+
+.chat-question {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.after-question {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.after-question .btn {
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------- the answer */
+
+.answer {
+  display: grid;
+  gap: 12px;
+  padding: 20px 24px;
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--ink);
+}
+
+.answer-headline {
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 500;
+}
+
+.answer-headline.is-stopped {
+  color: var(--fail);
+}
+
+.answer-section {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.answer-evidence {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.answer-cites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--muted);
+}
+
+/* The cited read: our record of a cluster call, numbered as it happened. */
+.answer-cite-id {
+  font-family: var(--font-id);
+  font-size: 12px;
+}
+
+.answer-fix {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--raised);
+}
+
+.answer code,
+.answer-fix code {
+  font-family: var(--font-id);
+  font-size: 13px;
+}
+
+.answer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--muted);
+}
+
+.answer-meta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink);
+}
+
+.answer-wait,
+.answer-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--muted);
+}
+
+.answer-error {
+  background: var(--fail-surface);
+  color: var(--fail);
+}
+
+/* The one moving thing: a slow pulse while the agent reads the cluster. */
+.answer-wait-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hazard);
+  animation: wait-pulse 1.4s var(--ease) infinite;
+}
+
+@keyframes wait-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .answer-wait-dot {
+    animation: none;
+  }
+}
+
 /* ---------------------------------------------------------------- readiness */
 
 .readiness {

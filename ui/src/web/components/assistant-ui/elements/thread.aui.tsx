@@ -130,6 +130,12 @@ export type ThreadComponents = {
     | undefined;
   TaskGroup?: ComponentType<{ group: ThreadGroupPart }> | undefined;
   ComposerExtra?: ComponentType | undefined;
+  /**
+   * Ours: one question per chat. Once the thread has a message, this replaces
+   * the composer (e.g. a "New question" button), and the edit and reload
+   * buttons are gone, so an answered chat can't be changed.
+   */
+  AfterQuestion?: ComponentType | undefined;
 };
 
 const messageGroupBy = groupPartByType({
@@ -274,7 +280,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
           >
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
-            <Composer autoFocus={autoFocus} />
+            <ComposerOrAfterQuestion autoFocus={autoFocus} />
             <AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
               <ThreadSuggestions />
             </AuiIf>
@@ -282,6 +288,23 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
         </div>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
+  );
+};
+
+const hasMessages = (s: AssistantState) => s.thread.messages.length > 0;
+
+const ComposerOrAfterQuestion: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
+  const { AfterQuestion } = useContext(ThreadComponentsContext);
+  if (!AfterQuestion) return <Composer autoFocus={autoFocus} />;
+  return (
+    <>
+      <AuiIf condition={(s) => !hasMessages(s)}>
+        <Composer autoFocus={autoFocus} />
+      </AuiIf>
+      <AuiIf condition={(s) => hasMessages(s) && !s.thread.isRunning}>
+        <AfterQuestion />
+      </AuiIf>
+    </>
   );
 };
 
@@ -705,6 +728,7 @@ const AssistantMessage: FC = () => {
     ToolGroup,
     ReasoningGroup,
     TaskGroup: TaskGroupComponent,
+    AfterQuestion,
   } = useContext(ThreadComponentsContext);
   const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
 
@@ -778,6 +802,8 @@ const AssistantMessage: FC = () => {
                   </div>
                 );
               case "indicator":
+                // Our chat draws its own "Investigating" part.
+                if (AfterQuestion) return null;
                 return (
                   <span
                     data-slot="aui_assistant-message-indicator"
@@ -807,6 +833,8 @@ const AssistantMessage: FC = () => {
 };
 
 const AssistantActionBar: FC = () => {
+  const { AfterQuestion } = useContext(ThreadComponentsContext);
+  if (AfterQuestion) return null; // read-only chat: nothing to copy, rerun or export
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
@@ -929,6 +957,8 @@ const UserMessage: FC = () => {
 };
 
 const UserActionBar: FC = () => {
+  const { AfterQuestion } = useContext(ThreadComponentsContext);
+  if (AfterQuestion) return null; // read-only chat: the question can't be edited
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning

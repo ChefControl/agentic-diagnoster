@@ -10,6 +10,7 @@ import type {
   ScenarioSummary,
 } from "../shared/types.ts";
 import { AgentChat } from "./AgentChat.tsx";
+import { MAX_CHATS, type StoredChat, useChats } from "./chats.ts";
 import { api, usePoll } from "./client.ts";
 
 const STATE_LABEL: Record<ScenarioState, string> = {
@@ -23,14 +24,21 @@ const STATE_LABEL: Record<ScenarioState, string> = {
 
 // Hash routes keep every view linkable:
 //   #/ or #/agent?q=...    Ask the agent (the user-facing product), optionally prefilled
+//   #/chats/<id>           an earlier chat from this browser's history, read-only
 //   #/scenarios            every scenario (reviewer)
 //   #/scenarios/<id>       one scenario and its answer key (reviewer)
-type Route = { page: "agent"; question: string } | { page: "scenarios" } | { page: "scenario"; id: string };
+type Route =
+  | { page: "agent"; question: string }
+  | { page: "chat"; id: string }
+  | { page: "scenarios" }
+  | { page: "scenario"; id: string };
 
 function parseHash(hash: string): Route {
   const [path = "", query = ""] = hash.replace(/^#/, "").split("?");
   const scenario = /^\/scenarios\/([\w-]+)$/.exec(path);
   if (scenario?.[1]) return { page: "scenario", id: scenario[1] };
+  const chat = /^\/chats\/([\w-]+)$/.exec(path);
+  if (chat?.[1]) return { page: "chat", id: chat[1] };
   if (path === "/scenarios") return { page: "scenarios" };
   return { page: "agent", question: new URLSearchParams(query).get("q") ?? "" };
 }
@@ -38,10 +46,12 @@ function parseHash(hash: string): Route {
 const scenarioHref = (id: string) => `#/scenarios/${id}`;
 const agentHref = (question?: string) => (question ? `#/agent?q=${encodeURIComponent(question)}` : "#/agent");
 
-function useRoute(): Route {
-  const [route, setRoute] = useState(() => parseHash(window.location.hash));
+// `visit` counts navigations, so following "New question" from a new chat
+// still starts a fresh one.
+function useRoute(): Route & { visit: number } {
+  const [route, setRoute] = useState(() => ({ ...parseHash(window.location.hash), visit: 0 }));
   useEffect(() => {
-    const onChange = () => setRoute(parseHash(window.location.hash));
+    const onChange = () => setRoute((r) => ({ ...parseHash(window.location.hash), visit: r.visit + 1 }));
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
@@ -56,6 +66,7 @@ export function App() {
   const phoenix = usePoll(api.phoenix, 10_000, "phoenix");
   const list = usePoll(api.scenarios, 5_000, "list");
   const [scenariosOpen, setScenariosOpen] = useState(true);
+  const chats = useChats();
 
   const scenarios = list.data ?? [];
   const current = route.page === "scenario" ? scenarios.find((s) => s.id === route.id) : undefined;
@@ -84,6 +95,22 @@ export function App() {
             <MessageSquare className="nav-icon" size={16} strokeWidth={1.5} aria-hidden="true" />
             Ask the agent
           </a>
+          {chats.length > 0 && (
+            <ul className="chat-list" aria-label="Recent questions">
+              {chats.map((c) => (
+                <li key={c.id}>
+                  <a
+                    className="nav-row chat-item"
+                    href={`#/chats/${c.id}`}
+                    aria-current={route.page === "chat" && route.id === c.id ? "page" : undefined}
+                    title={c.question}
+                  >
+                    <span className="chat-question">{c.question}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {/* The label opens the scenarios page; the arrow only folds the list. */}
           <div
@@ -135,7 +162,13 @@ export function App() {
 
         <main className="main">
           {route.page === "agent" ? (
-            <AgentChat key={route.question} question={route.question} examples={scenarios.map((s) => s.question)} />
+            <AgentChat
+              key={`new-${route.visit}`}
+              question={route.question}
+              examples={scenarios.map((s) => s.question)}
+            />
+          ) : route.page === "chat" ? (
+            <StoredChatView id={route.id} chats={chats} examples={scenarios.map((s) => s.question)} />
           ) : route.page === "scenarios" ? (
             list.data ? (
               <OverviewView scenarios={scenarios} phoenix={phoenix.data} onChanged={list.refresh} />
@@ -151,6 +184,18 @@ export function App() {
       </div>
     </div>
   );
+}
+
+function StoredChatView({ id, chats, examples }: { id: string; chats: StoredChat[]; examples: string[] }) {
+  const chat = chats.find((c) => c.id === id);
+  if (!chat) {
+    return (
+      <p className="muted">
+        This chat isn't in this browser's history (it keeps the last {MAX_CHATS}). <a href="#/agent">Ask a new question</a>
+      </p>
+    );
+  }
+  return <AgentChat key={`chat-${chat.id}`} question="" examples={examples} chat={chat} />;
 }
 
 function StatusDot({ ok, pending, up, down }: { ok?: boolean; pending: string; up: string; down: string }) {

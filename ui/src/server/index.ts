@@ -8,6 +8,7 @@ const app = buildApp({
   service,
   phoenixUrl: config.phoenixUrl,
   phoenixInternalUrl: config.phoenixInternalUrl,
+  agentUrl: config.agentUrl,
   webDir: config.production ? config.webDir : undefined,
   logger: true,
 });

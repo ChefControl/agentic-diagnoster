@@ -22,6 +22,8 @@ services:
       # service name, because inside this container "localhost" is the container.
       PHOENIX_URL: http://localhost:6006
       PHOENIX_INTERNAL_URL: http://phoenix:6006
+      # The chat's questions go to the agent service.
+      AGENT_URL: http://agent:8000
     # cluster.sh writes the kubeconfigs readable by you alone (chmod 600), so
     # the container runs as your user id. Shells don't export UID, so on Linux
     # run `UID=$(id -u) docker compose up -d --build`; Docker Desktop on a Mac
@@ -34,11 +36,12 @@ services:
       # Scenario edits take effect without rebuilding the image.
       - ./scenarios:/app/scenarios:ro
     networks: [kind]
-    depends_on: [phoenix]
+    depends_on: [phoenix, agent]
     restart: unless-stopped
 
   # The agent as an HTTP service. Phoenix calls it like a chat model, in
-  # OpenAI's format (/v1/chat/completions) or Anthropic's (/v1/messages).
+  # OpenAI's format (/v1/chat/completions) or Anthropic's (/v1/messages); the
+  # UI's chat asks it through /v1/runs.
   # CLUSTER_MODE in .env picks the cluster: live (default) or recorded, a saved
   # snapshot of the four scenarios that needs no cluster.
   agent:

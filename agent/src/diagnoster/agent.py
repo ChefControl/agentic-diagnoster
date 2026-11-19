@@ -89,6 +89,7 @@ async def diagnose(
     model: Model | str | None = None,
     system_prompt: str | None = None,
     attributes: Mapping[str, str] | None = None,
+    session_id: str | None = None,
     tracer_provider: TracerProvider | None = None,
     after: Callable[[RunReport], None] | None = None,
     raise_model_errors: bool = False,
@@ -98,6 +99,11 @@ async def diagnose(
     `system_prompt` replaces the prompt in this file for one run: Phoenix's
     Playground sends the prompt being tried. `attributes` are added to the
     root span.
+
+    `session_id` is the chat this run belongs to. PydanticAI's own spans carry
+    its conversation id as their session id, so the chat's id is passed as
+    that conversation id too: every span of the run then names one session,
+    and Phoenix groups the chat's runs together.
 
     `after` runs inside the root span once the report exists, so whatever it
     does (the remediation workflow) lands in the same trace as the run.
@@ -118,9 +124,17 @@ async def diagnose(
         span.set_attribute("input.value", question)
         span.set_attribute("diagnoster.model", str(model or settings.model))
         span.set_attributes(dict(attributes or {}))
+        if session_id:
+            span.set_attribute("session.id", session_id)  # OpenInference's key for Phoenix sessions
         model_error: Exception | None = None
         try:
-            result = await agent.run(question, deps=deps, usage_limits=limits, timeout=settings.run_timeout_s)
+            result = await agent.run(
+                question,
+                deps=deps,
+                usage_limits=limits,
+                timeout=settings.run_timeout_s,
+                conversation_id=session_id,
+            )
             report = RunReport(status="complete", diagnosis=result.output, tool_calls=deps.recorder.calls, trace_id=trace_id)
             span.set_status(Status(StatusCode.OK))
         except Exception as error:  # noqa: BLE001 - a run always ends in a report
