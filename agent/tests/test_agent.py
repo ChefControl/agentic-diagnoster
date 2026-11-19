@@ -326,3 +326,8 @@ async def test_a_remediate_answer_must_offer_the_fix_first():
     report = await run(FunctionModel(model), fixer=never_fix)
     assert "call apply_fix with this diagnosis" in told[0]
     assert report.status == "complete" and report.remediation.status == "not_asked"
+
+
+async def test_a_run_that_uses_too_many_tokens_stops_with_token_limit():
+    report = await run(FunctionModel(loop_forever), Settings(namespaces=("catalog",), total_tokens_limit=300))
+    assert report.status == "stopped" and report.stop_reason == "token_limit"

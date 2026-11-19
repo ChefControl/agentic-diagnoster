@@ -124,7 +124,7 @@ class ToolCall(_Strict):
     sources: list[Source] = []
 
 
-StopReason = Literal["request_limit", "tool_call_limit", "timeout", "invalid_output", "model_error"]
+StopReason = Literal["request_limit", "tool_call_limit", "token_limit", "timeout", "invalid_output", "model_error"]
 
 # What became of a fix the agent asked to apply (its apply_fix tool):
 # - asked: waiting for the person (the run is awaiting_approval)

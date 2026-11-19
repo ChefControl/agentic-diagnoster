@@ -11,6 +11,7 @@ export function categoryLabel(category: string): string {
 const STOPPED: Record<AgentStopReason, string> = {
   request_limit: "it used up its model calls before reaching an answer",
   tool_call_limit: "it used up its cluster reads before reaching an answer",
+  token_limit: "it used up its token budget before reaching an answer",
   timeout: "it ran out of time",
   invalid_output: "its answer didn't have the required shape, even after retries",
   model_error: "the model failed",
