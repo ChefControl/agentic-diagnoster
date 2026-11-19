@@ -1,4 +1,4 @@
-import { Activity, ArrowUpRight, Check, ChevronRight, Circle, MessageSquare, PenLine } from "lucide-react";
+import { Activity, ArrowUpRight, Check, ChevronRight, Circle, FlaskConical, MessageSquare, PenLine, Stethoscope } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type {
   EvidenceFact,
@@ -75,7 +75,11 @@ export function App() {
     <div className="shell">
       <header className="topbar">
         <a className="product" href="#/">
-          agentic-diagnoster
+          <span className="product-mark" aria-hidden="true">
+            <Stethoscope size={16} strokeWidth={2} />
+          </span>
+          <span className="product-name">agentic-diagnoster</span>
+          <span className="product-tag">Kubernetes diagnosis agent</span>
         </a>
         <div className="statuses">
           <StatusDot ok={health.data?.reachable} pending="Checking cluster…" up="Cluster connected" down="Cluster unreachable" />
@@ -252,7 +256,7 @@ function ScenarioActions({
   };
 
   const button = (action: Action, kind: "primary" | "quiet") => (
-    <button className={`btn btn-${kind}`} disabled={!!busy} onClick={() => run(action)}>
+    <button className={`btn btn-${kind}${compact ? " btn-sm" : ""}`} disabled={!!busy} onClick={() => run(action)}>
       {busy === action ? ACTION_LABEL[action][1] : compact && action === "reset" ? "Reset" : ACTION_LABEL[action][0]}
     </button>
   );
@@ -290,45 +294,49 @@ function OverviewView({
 }) {
   return (
     <div className="overview">
-      <h1 className="page-title">Scenarios</h1>
-      <p className="page-note">
-        Deploy a scenario, then ask the agent about it and compare its answer with the scenario's answer key.
-      </p>
-      <table className="grid-table overview-table">
-        <thead>
-          <tr>
-            <th scope="col">Scenario</th>
-            <th scope="col">Injected fault</th>
-            <th scope="col">Category</th>
-            <th scope="col">State</th>
-            <th scope="col">
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {scenarios.map((s) => (
-            <tr key={s.id}>
-              <td>
-                <a className="row-link" href={scenarioHref(s.id)}>
-                  {s.title}
-                </a>
-                <code className="cell-sub">{s.namespace}</code>
-              </td>
-              <td className="cell-fault">{s.fault}</td>
-              <td>
-                <code>{s.category}</code>
-              </td>
-              <td>
-                <StateTag state={s.state} />
-              </td>
-              <td className="cell-actions">
-                <ScenarioActions id={s.id} state={s.state} compact onDone={onChanged} />
-              </td>
+      <header className="page-head">
+        <h1 className="page-title">Scenarios</h1>
+        <p className="page-note">
+          Deploy a scenario, then ask the agent about it and compare its answer with the scenario's answer key.
+        </p>
+      </header>
+      <div className="table-card">
+        <table className="grid-table overview-table">
+          <thead>
+            <tr>
+              <th scope="col">Scenario</th>
+              <th scope="col">Injected fault</th>
+              <th scope="col">Category</th>
+              <th scope="col">State</th>
+              <th scope="col">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {scenarios.map((s) => (
+              <tr key={s.id}>
+                <td>
+                  <a className="row-link" href={scenarioHref(s.id)}>
+                    {s.title}
+                  </a>
+                  <code className="cell-sub">{s.namespace}</code>
+                </td>
+                <td className="cell-fault">{s.fault}</td>
+                <td>
+                  <code className="chip">{s.category}</code>
+                </td>
+                <td>
+                  <StateTag state={s.state} />
+                </td>
+                <td className="cell-actions">
+                  <ScenarioActions id={s.id} state={s.state} compact onDone={onChanged} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <EvalsSection phoenix={phoenix} />
     </div>
   );
@@ -339,29 +347,34 @@ function OverviewView({
 function EvalsSection({ phoenix }: { phoenix?: PhoenixStatus }) {
   return (
     <section className="evals" aria-labelledby="evals-title">
-      <h2 className="section-title" id="evals-title">
-        Evals
-      </h2>
-      {phoenix?.evalsUrl ? (
-        <>
+      <span className="evals-icon" aria-hidden="true">
+        <FlaskConical size={18} strokeWidth={1.75} />
+      </span>
+      <div className="evals-body">
+        <h2 className="section-title" id="evals-title">
+          Evals
+        </h2>
+        {phoenix?.evalsUrl ? (
+          <>
+            <p className="page-note">
+              Opens Phoenix's Playground with the agent's prompt and the eval dataset. Press Run there. To try another model,
+              pick it under <code>diagnoster-openai</code> or <code>diagnoster-claude</code>. The agent reads the cluster set by{" "}
+              <code>CLUSTER_MODE</code> in <code>.env</code>: <code>live</code> needs all four scenarios deployed,{" "}
+              <code>recorded</code> answers from a saved copy of them.
+            </p>
+            <a className="btn btn-quiet evals-link" href={phoenix.evalsUrl} target="_blank" rel="noreferrer">
+              Run evals in Phoenix
+              <ArrowUpRight size={16} strokeWidth={1.5} aria-label="opens Phoenix" />
+            </a>
+          </>
+        ) : phoenix?.reachable ? (
           <p className="page-note">
-            Opens Phoenix's Playground with the agent's prompt and the eval dataset. Press Run there. To try another model,
-            pick it under <code>diagnoster-openai</code> or <code>diagnoster-claude</code>. The agent reads the cluster set by{" "}
-            <code>CLUSTER_MODE</code> in <code>.env</code>: <code>live</code> needs all four scenarios deployed,{" "}
-            <code>recorded</code> answers from a saved copy of them.
+            Phoenix has no evals yet. Set them up with <code>docker compose up phoenix-setup</code>.
           </p>
-          <a className="btn btn-quiet evals-link" href={phoenix.evalsUrl} target="_blank" rel="noreferrer">
-            Run evals in Phoenix
-            <ArrowUpRight size={16} strokeWidth={1.5} aria-label="opens Phoenix" />
-          </a>
-        </>
-      ) : phoenix?.reachable ? (
-        <p className="page-note">
-          Phoenix has no evals yet. Set them up with <code>docker compose up phoenix-setup</code>.
-        </p>
-      ) : (
-        <p className="page-note">Start Phoenix to run evals.</p>
-      )}
+        ) : (
+          <p className="page-note">Start Phoenix to run evals.</p>
+        )}
+      </div>
     </section>
   );
 }
@@ -381,7 +394,7 @@ function ScenarioView({ summary, onChanged }: { summary: ScenarioSummary; onChan
       <header className="scenario-bar">
         <div className="scenario-id">
           <h1 className="scenario-name">{summary.title}</h1>
-          <code className="ns">{summary.namespace}</code>
+          <code className="ns chip">{summary.namespace}</code>
           <StateTag state={state} />
         </div>
         <ScenarioActions
@@ -394,19 +407,22 @@ function ScenarioView({ summary, onChanged }: { summary: ScenarioSummary; onChan
         />
       </header>
 
-      <p className="fault">
-        <span className="fault-label">Injected fault</span>
-        {summary.fault}
-      </p>
-      <Readiness status={status.data} error={status.error} />
+      <section className="scenario-card">
+        <p className="fault">
+          <span className="fault-label">Injected fault</span>
+          {summary.fault}
+        </p>
+        <Readiness status={status.data} error={status.error} />
 
-      {state === "reproduced" && (
-        <div className="actions ask-row">
-          <a className="btn btn-primary" href={agentHref(summary.question)}>
-            Ask the agent about it
-          </a>
-        </div>
-      )}
+        {state === "reproduced" && (
+          <div className="actions ask-row">
+            <a className="btn btn-primary" href={agentHref(summary.question)}>
+              <MessageSquare size={16} strokeWidth={1.75} aria-hidden="true" />
+              Ask the agent about it
+            </a>
+          </div>
+        )}
+      </section>
 
       <AnswerKey spec={spec.data} error={spec.error} />
     </article>

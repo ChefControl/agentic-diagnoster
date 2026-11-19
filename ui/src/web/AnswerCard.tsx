@@ -1,7 +1,35 @@
-import { ArrowUpRight } from "lucide-react";
+import {
+  ArrowUpRight,
+  CircleAlert,
+  CircleCheck,
+  CircleSlash,
+  CircleX,
+  Clock,
+  Cpu,
+  Info,
+  ListChecks,
+  Search,
+  ShieldAlert,
+  Stethoscope,
+  Wrench,
+} from "lucide-react";
 import type { ReactNode } from "react";
-import type { AgentRun } from "../shared/types.ts";
+import type { AgentRemediation, AgentRun } from "../shared/types.ts";
 import { citedCalls, describeCall, headline, modelName, remediationText } from "./answer.ts";
+
+const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
+
+// One icon per fix outcome, so the result reads before its sentence does.
+const OUTCOME_ICON: Record<AgentRemediation["status"], typeof CircleCheck> = {
+  fixed: CircleCheck,
+  not_fixed: CircleX,
+  stale: CircleAlert,
+  failed: CircleX,
+  denied: CircleSlash,
+  not_allowed: CircleSlash,
+  not_asked: Info,
+  asked: Clock,
+};
 
 // The agent's answer, in plain words. Everything here comes from its report;
 // the cited reads are ours (recorded by the agent's code), not the model's say-so.
@@ -14,17 +42,31 @@ export function AnswerCard({ run, children }: { run: AgentRun; children?: ReactN
   const remediation = run.report.remediation?.status === "asked" ? null : run.report.remediation;
   // On the recorded cluster the agent never asks, so say why there is no button.
   const unavailable = !remediation && fix && run.cluster === "recorded";
+  const healthy = diagnosis?.root_cause.category === "none";
+  const HeadIcon = !diagnosis ? CircleAlert : healthy ? CircleCheck : Stethoscope;
+  const OutcomeIcon = OUTCOME_ICON[remediation?.status ?? "not_asked"];
 
   return (
     <article className="answer" aria-label="The agent's answer">
-      <h2 className={`answer-headline ${diagnosis ? "" : "is-stopped"}`}>{headline(run)}</h2>
+      <header className={`answer-head ${!diagnosis ? "is-stopped" : healthy ? "is-healthy" : "is-found"}`}>
+        <span className="answer-head-icon">
+          <HeadIcon size={18} strokeWidth={1.75} aria-hidden="true" />
+        </span>
+        <div className="answer-head-text">
+          <span className="answer-kicker">{!diagnosis ? "No diagnosis" : "Root cause"}</span>
+          <h2 className={`answer-headline ${diagnosis ? "" : "is-stopped"}`}>{headline(run)}</h2>
+        </div>
+      </header>
 
       {diagnosis && (
         <>
-          <p className="answer-text">{diagnosis.root_cause.explanation}</p>
+          <p className="answer-text answer-lead">{diagnosis.root_cause.explanation}</p>
 
-          <h3 className="answer-section">What shows it</h3>
-          <ul className="answer-evidence">
+          <h3 className="answer-section">
+            <Search {...ICON} />
+            What shows it
+          </h3>
+          <ol className="answer-evidence">
             {diagnosis.evidence.map((item, i) => (
               <li key={i}>
                 <span className="answer-text">{item.fact}</span>
@@ -37,17 +79,31 @@ export function AnswerCard({ run, children }: { run: AgentRun; children?: ReactN
                 </span>
               </li>
             ))}
-          </ul>
+          </ol>
 
           {diagnosis.next_action.kind !== "none" && (
             <>
-              <h3 className="answer-section">What to do</h3>
+              <h3 className="answer-section">
+                <ListChecks {...ICON} />
+                What to do
+              </h3>
               <p className="answer-text">{diagnosis.next_action.summary}</p>
               {fix && (
-                <p className="answer-fix">
-                  Proposed fix: on <code>{fix.target}</code>, change <code>{fix.field}</code> from <code>{fix.from}</code>{" "}
-                  to <code>{fix.to}</code>.
-                </p>
+                <div className="answer-fix">
+                  <p className="answer-fix-title">
+                    <Wrench size={14} strokeWidth={1.75} aria-hidden="true" />
+                    Proposed fix
+                  </p>
+                  <pre className="diff">
+                    <span className="diff-meta">
+                      {fix.target} <span className="diff-field">{fix.field}</span>
+                    </span>
+                    {"\n"}
+                    <span className="diff-del">- {fix.from}</span>
+                    {"\n"}
+                    <span className="diff-add">+ {fix.to}</span>
+                  </pre>
+                </div>
               )}
             </>
           )}
@@ -58,20 +114,29 @@ export function AnswerCard({ run, children }: { run: AgentRun; children?: ReactN
 
       {(remediation || unavailable) && (
         <div className={`answer-outcome is-${remediation?.status ?? "not_asked"}`} role="status">
-          <p>{remediationText(remediation ?? { status: "not_asked", detail: "", fix: null, expected_effect: null }, run.cluster)}</p>
-          {remediation?.detail && <p className="answer-outcome-detail">{remediation.detail}</p>}
+          <OutcomeIcon className="answer-outcome-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+          <div className="answer-outcome-body">
+            <p>{remediationText(remediation ?? { status: "not_asked", detail: "", fix: null, expected_effect: null }, run.cluster)}</p>
+            {remediation?.detail && <p className="answer-outcome-detail">{remediation.detail}</p>}
+          </div>
         </div>
       )}
 
       <footer className="answer-meta">
-        <span>
-          {modelName(run.model)}, {run.cluster === "recorded" ? "recorded cluster" : "live cluster"}, {reads} cluster{" "}
-          {reads === 1 ? "read" : "reads"}
+        <span className="answer-meta-facts">
+          <span className="meta-chip">
+            <Cpu size={13} strokeWidth={1.75} aria-hidden="true" />
+            {modelName(run.model)}
+          </span>
+          <span className="meta-chip">{run.cluster === "recorded" ? "recorded cluster" : "live cluster"}</span>
+          <span className="meta-chip">
+            {reads} cluster {reads === 1 ? "read" : "reads"}
+          </span>
         </span>
         {run.trace_url && (
           <a href={run.trace_url} target="_blank" rel="noreferrer">
             View trace in Phoenix
-            <ArrowUpRight size={14} strokeWidth={1.5} aria-label="opens Phoenix" />
+            <ArrowUpRight size={14} strokeWidth={1.75} aria-label="opens Phoenix" />
           </a>
         )}
       </footer>
@@ -91,6 +156,7 @@ export function Investigating() {
 export function NoAnswer({ error }: { error: string }) {
   return (
     <p className="answer-error" role="alert">
+      <CircleAlert size={18} strokeWidth={1.75} aria-hidden="true" />
       No answer: {error}
     </p>
   );
@@ -113,24 +179,29 @@ export function Approval({
   if (!fix) return null;
   return (
     <div className="approval" role="group" aria-label="Approve the fix">
-      <p className="approval-question">Apply this fix?</p>
+      <div className="approval-head">
+        <ShieldAlert className="approval-icon" size={20} strokeWidth={1.75} aria-hidden="true" />
+        <div>
+          <p className="approval-question">Apply this fix?</p>
+          <p className="approval-note">
+            The agent changes only <code>{fix.field}</code> on <code>{fix.target}</code>, then checks for up to 90
+            seconds that the pods become ready. Read the diagnosis above before you approve.
+          </p>
+        </div>
+      </div>
       {effect && (
-        <p className="answer-text">
-          <span className="approval-label">Expected effect, in the agent's words: </span>
+        <p className="answer-text approval-effect">
+          <span className="approval-label">Expected effect, in the agent's words</span>
           {effect}
         </p>
       )}
-      <p className="approval-note">
-        The agent changes only <code>{fix.field}</code> on <code>{fix.target}</code>, then checks for up to 90 seconds
-        that the pods become ready. Read the diagnosis above before you approve.
-      </p>
       {busy ? (
         <p className="answer-wait" role="status">
           <span className="answer-wait-dot" aria-hidden="true" />
           {busy === "approve" ? "Applying the fix and checking the result. This can take up to two minutes." : "Telling the agent."}
         </p>
       ) : (
-        <div className="actions">
+        <div className="actions approval-actions">
           <button className="btn btn-primary" onClick={() => onDecide(true)}>
             Apply fix
           </button>

@@ -7,7 +7,7 @@ import {
   type ThreadMessageLike,
   useLocalRuntime,
 } from "@assistant-ui/react";
-import { MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus, Stethoscope } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -87,6 +87,9 @@ function askAgent(chatId: string): ChatModelAdapter {
 function Welcome() {
   return (
     <div className="agent-welcome">
+      <span className="welcome-mark" aria-hidden="true">
+        <Stethoscope size={22} strokeWidth={1.75} />
+      </span>
       <h1 className="page-title">What's wrong?</h1>
       <p className="page-note">
         Describe the symptom. The agent reads the cluster, then reports the root cause, the evidence behind it and
