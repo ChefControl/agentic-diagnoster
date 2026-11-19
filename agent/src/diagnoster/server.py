@@ -9,6 +9,7 @@ experiments run the real agent, with the model you pick in Phoenix's menu.
     POST /v1/chat/completions   OpenAI's format; a plain model name is an OpenAI model
     POST /v1/messages           Anthropic's format; a plain model name is a Claude model
     POST /v1/runs               for people (the UI's chat): the report as JSON, with a session id
+    POST /v1/runs/{id}/approval for people: approve or deny the fix a run is waiting on
 
 The cluster is the agent's own setting, CLUSTER_MODE: `live` reads the real
 cluster as the diagnoster-reader; `recorded` replays the saved snapshot and
@@ -25,6 +26,11 @@ The answer is one assistant message (see reply.py). A run that hits a limit
 still answers 200 with a stopped report: that is a result. A model failure
 (a rate limit, an outage, a missing key, an unknown model) answers 502, so it
 is recorded as an error and not as a wrong answer.
+
+Fixes: only the chat can approve one. In the vendor formats (Phoenix, evals)
+and on the recorded cluster, the agent's apply_fix is denied with a plain
+message and the run finishes. In the chat, a run that asks to apply a fix
+pauses; it waits in this process's memory for 30 minutes (a restart loses it).
 """
 
 import dataclasses
@@ -46,10 +52,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
-from . import recorded
-from .agent import diagnose
+from . import recorded, remediation
+from .agent import Paused, diagnose, resume
 from .cluster import Cluster, connect
 from .config import Settings, load_settings
+from .contract import Diagnosis, Remediation, RunReport
 from .reply import render
 from .tracing import setup
 
@@ -58,6 +65,12 @@ log = logging.getLogger(__name__)
 # "openai:gpt-6-luna": a provider PydanticAI knows, then the model's name there.
 QUALIFIED = re.compile(r"^[a-z][a-z0-9_-]*:\S+$")
 SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+RUN_ID = re.compile(r"^[0-9a-f]{32}$")
+PAUSED_FOR_S = 30 * 60
+
+# What the agent reads when its fix is denied because no one can approve it.
+NO_APPROVER = "No one can approve changes here, so nothing was changed. Give your final answer."
+RECORDED = "The recorded cluster can't be changed, so nothing was changed. Give your final answer."
 
 
 class BadRequest(Exception):
@@ -196,11 +209,25 @@ def create_app(
     resolve_model: Callable[[str], Model | str] = lambda name: name,
     live: Callable[[], Cluster] | None = None,
     load_recorded: Callable[[], recorded.Snapshot] = cache(recorded.load),
+    remediator: Callable[[], Cluster] | None = None,
+    verify_fn: Callable[[Cluster], tuple[bool, list[str]]] = remediation.verify,
     tracer_provider: TracerProvider | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> Starlette:
     """The app. Tests pass a scripted model and fake clusters; `app_from_env` passes nothing."""
     # A fresh connection per request picks up a re-issued token.
     live = live or (lambda: connect(settings.reader_kubeconfig))
+    # The write account, loaded only inside an approved apply_fix.
+    remediator = remediator or (lambda: connect(settings.remediator_kubeconfig))
+    paused: dict[str, tuple[float, Paused]] = {}
+
+    def fixer(diagnosis: Diagnosis) -> Remediation:
+        outcome = remediation.fix(diagnosis, remediator=remediator, reader=live, verify_fn=verify_fn)
+        return Remediation(status=outcome.status, detail=outcome.detail, fix=diagnosis.next_action.proposed_fix)
+
+    def forget_old() -> None:
+        for run_id in [r for r, (at, _) in paused.items() if clock() - at > PAUSED_FOR_S]:
+            del paused[run_id]
 
     def cluster() -> tuple[Cluster, Settings]:
         if settings.cluster_mode == "live":
@@ -232,6 +259,7 @@ def create_app(
                     "diagnoster.cluster": settings.cluster_mode,
                     "diagnoster.prompt_source": "request" if ask.system_prompt else "code",
                 },
+                no_approver=NO_APPROVER if settings.cluster_mode == "live" else RECORDED,
                 tracer_provider=tracer_provider,
                 raise_model_errors=True,
             )
@@ -265,6 +293,13 @@ def create_app(
         except FileNotFoundError as e:
             return _openai_error(503, str(e), "cluster_unavailable")
         attributes = {"diagnoster.cluster": settings.cluster_mode, "diagnoster.prompt_source": "code", "diagnoster.entry": "chat"}
+        run_id = uuid.uuid4().hex
+        live_cluster = settings.cluster_mode == "live"
+
+        def keep(waiting: Paused) -> None:
+            forget_old()
+            paused[run_id] = (clock(), waiting)
+
         try:
             report = await diagnose(
                 question.strip(),
@@ -273,16 +308,23 @@ def create_app(
                 model=resolve_model(model_name),
                 attributes=attributes,
                 session_id=session_id,
+                # A person is here: on the live cluster, the run waits for their answer.
+                no_approver=None if live_cluster else RECORDED,
+                fixer=fixer if live_cluster else None,
+                on_pause=keep,
                 tracer_provider=tracer_provider,
                 raise_model_errors=True,
             )
         except Exception as e:  # noqa: BLE001 - the chat gets an error, not an answer
             log.warning("model error with %s: %s: %s", model_name, type(e).__name__, e)
             return _openai_error(502, f"{type(e).__name__}: {e}", "model_error")
+        return run_reply(run_id, model_name, report)
+
+    def run_reply(run_id: str, model_name: str, report: RunReport) -> JSONResponse:
         trace_url = f"{settings.phoenix_url}/redirects/traces/{report.trace_id}" if report.trace_id else None
         return JSONResponse(
             {
-                "run_id": uuid.uuid4().hex,
+                "run_id": run_id,
                 "status": report.status,
                 "model": model_name,
                 "cluster": settings.cluster_mode,
@@ -290,6 +332,31 @@ def create_app(
                 "report": report.model_dump(mode="json"),
             }
         )
+
+    async def approval(request: Request) -> Response:
+        """The person's answer to the fix a run is waiting on. One answer per run."""
+        run_id = request.path_params["run_id"]
+        try:
+            body = await request.json()
+        except ValueError:
+            return _openai_error(400, "The body must be JSON.", "invalid_request_error")
+        approved = body.get("approved") if isinstance(body, dict) else None
+        if not isinstance(approved, bool):
+            return _openai_error(400, "The body needs `approved`: true or false.", "invalid_request_error")
+        forget_old()
+        # Taken out before running, so a second click can't apply the fix twice.
+        entry = paused.pop(run_id, None) if RUN_ID.match(run_id) else None
+        if entry is None:
+            return _openai_error(
+                404, "No fix is waiting under this run: it was answered, it expired (30 min) or the agent restarted.", "not_found"
+            )
+        waiting = entry[1]
+        try:
+            report = await resume(waiting, approved, tracer_provider=tracer_provider, raise_model_errors=True)
+        except Exception as e:  # noqa: BLE001
+            log.warning("model error resuming %s: %s: %s", run_id, type(e).__name__, e)
+            return _openai_error(502, f"{type(e).__name__}: {e}", "model_error")
+        return run_reply(run_id, waiting.model_label, report)
 
     async def healthz(request: Request) -> Response:
         return JSONResponse({"status": "ok", "cluster": settings.cluster_mode, "model": settings.model})
@@ -316,6 +383,7 @@ def create_app(
             Route("/v1/chat/completions", chat_completions, methods=["POST"]),
             Route("/v1/messages", messages, methods=["POST"]),
             Route("/v1/runs", runs, methods=["POST"]),
+            Route("/v1/runs/{run_id}/approval", approval, methods=["POST"]),
         ],
         lifespan=lifespan,
     )

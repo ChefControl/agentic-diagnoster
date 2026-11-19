@@ -198,6 +198,24 @@ describe("the chat asks the agent through the API", () => {
     expect(res.json().error).toContain("docker compose up -d agent");
   });
 
+  it("forwards the person's answer on a waiting fix", async () => {
+    await withAgent(
+      () => [200, { run_id: "a".repeat(32), status: "complete" }],
+      async (agentUrl, seen) => {
+        const app = buildApp({ service, agentUrl });
+        const url = `/api/agent/runs/${"a".repeat(32)}/approval`;
+        const res = await app.inject({ method: "POST", url, headers, payload: { approved: true } });
+        expect(res.statusCode).toBe(200);
+        expect(seen).toEqual([`POST /v1/runs/${"a".repeat(32)}/approval {"approved":true}`]);
+        const vague = await app.inject({ method: "POST", url, headers, payload: { approved: "yes" } });
+        expect(vague.statusCode).toBe(400);
+        const odd = await app.inject({ method: "POST", url: "/api/agent/runs/..%2Fx/approval", headers, payload: { approved: true } });
+        expect(odd.statusCode).toBe(404);
+        expect(seen).toHaveLength(1);
+      },
+    );
+  });
+
   it("needs a question and the UI's header", async () => {
     const app = buildApp({ service, agentUrl: "http://127.0.0.1:9" });
     const empty = await app.inject({ method: "POST", url: "/api/agent/runs", headers, payload: { question: " " } });

@@ -20,7 +20,7 @@ from kubernetes.client.exceptions import ApiException
 from pydantic_ai import FunctionToolset, RunContext
 
 from .cluster import Cluster
-from .contract import Source, ToolCall
+from .contract import Diagnosis, Remediation, Source, ToolCall
 
 MAX_LOG_PODS = 3
 LOG_LINES = 50
@@ -48,6 +48,11 @@ class Recorder:
 class RunDeps:
     cluster: Cluster
     recorder: Recorder = field(default_factory=Recorder)
+    # Applies an approved fix (remediation.fix with real accounts). None where
+    # nothing may change: the recorded cluster, evals.
+    fixer: Callable[[Diagnosis], Remediation] | None = None
+    # What became of the fix; our code writes it, the report carries it.
+    remediation: Remediation | None = None
 
 
 class NotFound(Exception):

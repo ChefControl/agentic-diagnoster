@@ -139,18 +139,29 @@ export interface AgentToolCall {
 
 export type AgentStopReason = "request_limit" | "tool_call_limit" | "timeout" | "invalid_output" | "model_error";
 
+// What became of the fix the agent asked to apply; written by the agent's code, not the model.
+export interface AgentRemediation {
+  status: "asked" | "not_asked" | "not_allowed" | "denied" | "stale" | "fixed" | "not_fixed";
+  detail: string;
+  fix: AgentProposedFix | null;
+  expected_effect: string | null; // the agent's words, given when it asked
+}
+
+export type AgentRunStatus = "complete" | "stopped" | "awaiting_approval";
+
 export interface AgentReport {
-  status: "complete" | "stopped";
+  status: AgentRunStatus;
   stop_reason: AgentStopReason | null;
   diagnosis: AgentDiagnosis | null;
   tool_calls: AgentToolCall[];
   trace_id: string | null;
+  remediation: AgentRemediation | null;
 }
 
 // One chat question, answered by the agent's POST /v1/runs.
 export interface AgentRun {
-  run_id: string;
-  status: "complete" | "stopped";
+  run_id: string; // with awaiting_approval, the run to approve or deny
+  status: AgentRunStatus;
   model: string;
   cluster: "live" | "recorded";
   trace_url: string | null;

@@ -17,7 +17,6 @@ dependencies = [
 ]
 
 [project.scripts]
-diagnose = "diagnoster.cli:main"
 phoenix-setup = "diagnoster.evals.setup:main"
 
 [build-system]

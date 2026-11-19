@@ -332,3 +332,85 @@ def test_a_chat_run_carries_its_session_into_the_trace(spans):
     assert run.attributes["gen_ai.conversation.id"] == "chat-42"
     assert root.attributes["diagnoster.entry"] == "chat"
     assert reply["trace_url"].endswith(format(root.context.trace_id, "032x"))
+
+
+# ---- fixes: paused in the chat, denied everywhere else ---------------------------------
+
+from test_agent import asks_to_fix  # noqa: E402
+from test_remediation import payments  # noqa: E402
+
+ASK_RUN = {"question": QUESTION, "session_id": "chat-7"}
+
+
+def fixing_app(seen, world=None, clock=lambda: 0.0, settings=SETTINGS, **kw):
+    world = world or payments()
+    return world, TestClient(
+        create_app(
+            settings,
+            resolve_model=lambda name: asks_to_fix(seen),
+            live=lambda: selector_mismatch_world().cluster(),
+            remediator=world.cluster,
+            verify_fn=lambda reader: (True, ["pods ready 2/2"]),
+            clock=clock,
+            **kw,
+        )
+    )
+
+
+def test_the_chat_waits_for_approval_then_the_agent_applies_the_fix():
+    seen = []
+    world, app = fixing_app(seen)
+    asked = app.post("/v1/runs", json=ASK_RUN).json()
+    assert asked["status"] == "awaiting_approval"
+    assert asked["report"]["diagnosis"]["next_action"]["proposed_fix"]["to"] == "/health"
+    assert world.patches == []
+
+    done = app.post(f"/v1/runs/{asked['run_id']}/approval", json={"approved": True}).json()
+    assert done["status"] == "complete" and done["run_id"] == asked["run_id"]
+    assert done["report"]["remediation"]["status"] == "fixed"
+    assert len(world.patches) == 1
+    # One answer per run: a second click finds nothing to approve.
+    again = app.post(f"/v1/runs/{asked['run_id']}/approval", json={"approved": True})
+    assert again.status_code == 404 and len(world.patches) == 1
+
+
+def test_a_denied_fix_changes_nothing():
+    seen = []
+    world, app = fixing_app(seen)
+    run_id = app.post("/v1/runs", json=ASK_RUN).json()["run_id"]
+    done = app.post(f"/v1/runs/{run_id}/approval", json={"approved": False}).json()
+    assert done["report"]["remediation"]["status"] == "denied"
+    assert world.patches == []
+
+
+def test_a_waiting_fix_expires_after_30_minutes():
+    now = [0.0]
+    _, app = fixing_app([], clock=lambda: now[0])
+    run_id = app.post("/v1/runs", json=ASK_RUN).json()["run_id"]
+    now[0] = 30 * 60 + 1
+    response = app.post(f"/v1/runs/{run_id}/approval", json={"approved": True})
+    assert response.status_code == 404 and "expired" in response.json()["error"]["message"]
+
+
+@pytest.mark.parametrize("body", [{}, {"approved": "yes"}, None])
+def test_an_approval_needs_true_or_false(body):
+    _, app = fixing_app([])
+    assert app.post("/v1/runs/" + "a" * 32 + "/approval", json=body).status_code == 400
+
+
+def test_phoenix_and_evals_never_wait_the_fix_is_denied():
+    seen = []
+    world, app = fixing_app(seen)
+    report = report_in(openai_content(app.post("/v1/chat/completions", json=ASK)))
+    assert report.status == "complete" and report.remediation.status == "not_asked"
+    assert seen == ["No one can approve changes here, so nothing was changed. Give your final answer."]
+    assert world.patches == []
+
+
+def test_the_recorded_cluster_never_offers_the_fix():
+    seen = []
+    world, app = fixing_app(seen, settings=dataclasses_replace(SETTINGS, cluster_mode="recorded"))
+    reply = app.post("/v1/runs", json=ASK_RUN).json()
+    assert reply["status"] == "complete" and reply["report"]["remediation"]["status"] == "not_asked"
+    assert seen == ["The recorded cluster can't be changed, so nothing was changed. Give your final answer."]
+    assert world.patches == []
