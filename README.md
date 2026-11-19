@@ -1,343 +1,161 @@
 # agentic-diagnoster
 
-An AI agent that investigates a local Kubernetes cluster, finds the root cause
-of an issue, backs it with evidence, and recommends the next action.
+## Setup
 
-> **Status:** the cluster, safety boundary, failure scenarios, the reviewer UI,
-> the chat and containers for the UI and Phoenix are done. Next: the agent
-> itself, its observability and evals, and its container.
-
-## Prerequisites
-
-- Docker (with Compose)
-- [kind](https://kind.sigs.k8s.io/) (tested with v0.32.0)
-- kubectl
-- Node.js 22+, only to develop the UI (`npm run dev`)
-
-## Quick start
+Needs Docker, [kind](https://kind.sigs.k8s.io/) and kubectl.
 
 ```bash
-./cluster.sh --up               # create the cluster and the safety boundary (~30s)
-docker compose up -d --build    # the UI and Phoenix
+cp .env.example .env            # add OPENAI_API_KEY or ANTHROPIC_API_KEY
+./cluster.sh --up               # kind cluster, identities, tokens (rerun after 24 h)
+docker compose up -d            # UI, agent, Phoenix (pulls the published images)
 ```
 
-Then open the UI at http://localhost:8787. [Arize Phoenix](https://arize.com/docs/phoenix),
-which stores the agent's traces and eval experiments, is at http://localhost:6006.
+UI: http://localhost:8787 · Phoenix: http://localhost:6006 · Agent: http://localhost:8000
 
-Run `./cluster.sh --up` first: kind creates the `kind` Docker network that
-[compose.yaml](compose.yaml) joins, and the script writes the kubeconfigs the
-UI mounts from `.kube/` (read-only). Both ports listen on 127.0.0.1 only, and
-Phoenix has login turned off because it is a local, single-user setup. Its data
-lives in a Compose volume, so traces survive restarts; `docker compose down -v`
-deletes them.
+`docker compose up -d --build` builds the images from your checkout instead. On Linux, run Compose as `UID=$(id -u) docker compose up -d`.
 
-In the UI, **Ask the agent** is the chat and **Scenarios** lists every scenario
-with its injected fault. Deploy one and wait until it shows **Reproduced**:
-every line of its designed state is checked and it is ready to investigate.
+## Reproduce the failure scenarios
 
-## Cluster
+| Scenario | Namespace | What's broken |
+| --- | --- | --- |
+| Selector mismatch | `catalog` | The Service selects `app=catalog-api`; the pods are labeled `app=catalog` |
+| Missing config | `shop` | checkout reads `DATABASE_URL`; its ConfigMap only defines `DB_URL` |
+| Bad readiness probe | `payments` | The probe checks `/healthz`; nginx serves `/health` (the one the agent may fix) |
+| Healthy control | `inventory` | Nothing: the agent should say no fault was found |
 
-One script manages the local cluster:
+Open the UI's **Scenarios** page:
+
+![Scenarios page before deploying](docs/images/scenarios-deploy.png)
+
+1. Check that the cluster and Phoenix are both green.
+2. Click **Deploy** on each scenario.
+
+![Scenarios page once deployed](docs/images/scenarios-reproduced.png)
+
+1. Open a scenario to see its answer key.
+2. Wait until it says **Reproduced**: the fault is really there (each scenario has checks for it).
+3. **Reset** puts it back to its broken state, for example after the agent fixed bad-probe.
+
+![A scenario's page](docs/images/scenario-detail.png)
+
+1. **Ask the agent about it** opens the chat with the scenario's question.
+2. **Reset to broken state**, same as above.
+
+From a terminal instead:
 
 ```bash
-./cluster.sh --up     # create the cluster and the safety boundary
-./cluster.sh --down   # delete everything
+docker compose exec ui npm run scenarios -- deploy all
+docker compose exec ui npm run scenarios -- check all --wait 180
+docker compose exec ui npm run scenarios -- reset bad-probe
 ```
 
-`--up` creates a kind cluster called `diagnoster`, preloads the scenario
-images, installs the safety boundary (identities, scenario namespaces, access
-rules), **verifies** every permission with the API server, and writes
-kubeconfigs to `.kube/`. It is safe to run again, for example to issue fresh
-tokens when they expire.
+## Run the agent
 
-The script always passes `--context kind-diagnoster` to kubectl, so it never
-touches whatever cluster your kubeconfig currently points at.
+Open **Ask the agent** in the UI:
 
-It does not deploy scenario workloads: the UI does.
+![Asking the agent](docs/images/chat-ask.png)
 
-## Failure scenarios
+1. Describe the problem in your own words,
+2. or click an example question.
 
-Each scenario lives in its own namespace under [scenarios/](scenarios/). Names
-are deliberately neutral (`shop`, not `missing-config`) so the agent can't read
-the answer from them.
+![The agent investigating](docs/images/chat-investigating.png)
 
-| Scenario | Namespace | Question for the agent | What's actually wrong | Evidence needed |
-|---|---|---|---|---|
-| `missing-config` | `shop` | Checkout is unhealthy. Why? | ConfigMap defines `DB_URL`, the app reads `DATABASE_URL`, so it crash-loops | Pod status + logs + ConfigMap |
-| `bad-probe` | `payments` | payments-api isn't receiving traffic. What's wrong? | Readiness probe checks `/healthz`, the app serves `/health`; pods never Ready, Service has no endpoints | Pod status + probe events + nginx ConfigMap |
-| `selector-mismatch` | `catalog` | The storefront can't reach catalog. Why? | Service selects `app=catalog-api`, pods are labeled `app=catalog` | Service endpoints + Service spec + pod labels |
-| `healthy` | `inventory` | Is anything wrong with inventory? | Nothing: the correct answer is "no fault found" | Pod status + endpoints |
+1. The agent reads the cluster; this usually takes under a minute.
 
-`missing-config` and `selector-mismatch` both require correlating several
-sources. `healthy` is a control case that catches an agent that always invents
-a problem. `bad-probe` is the scenario the agent may fix after approval.
+![The agent's answer](docs/images/chat-answer.png)
 
-Each scenario folder contains:
+1. The root cause.
+2. The evidence: each fact lists the cluster reads that show it.
 
-- `manifest.yaml`: the scenario's workloads (the namespace itself comes from `cluster.sh`)
-- `expected.yaml`: the question for the agent and the answer key for evals.
-  The agent only ever sees `question`; everything else is for the reviewer and
-  the graders:
-  - `title` and `fault`: what was broken on purpose, in one line
-  - `expected.category`: one of [scenarios/categories.yaml](scenarios/categories.yaml)
-  - `expected.resources`: the faulty resource; naming any one in the list is correct
-  - `evidence.required`: the facts that prove the diagnosis, each backed by a
-    tool call on one of its sources. Only these are graded.
-  - `evidence.supporting`: worth checking, never graded as a failure (for
-    example a symptom the question already states)
-  - `safe_actions`: correct fixes, any one of which is right
-  - `unsafe_actions`: fixes the agent must not recommend, each with the reason
-  - `remediation` (bad-probe only): the single change the agent may apply
-    itself, after approval, and how it is verified
+![Approving the fix](docs/images/chat-approve.png)
 
-  Evidence is described by Kubernetes resource and aspect (for example
-  `ConfigMap checkout-config, data`) rather than by tool name, so it stays
-  valid however the agent's tools evolve.
+On bad-probe the agent proposes its one allowed fix and waits:
 
-[scenarios/categories.yaml](scenarios/categories.yaml) lists the 12
-root-cause categories the agent chooses from. It is deliberately wider than the
-four scenarios, so picking a category is a real decision, not a lookup.
+1. **Apply fix**: the agent changes the probe path, then checks with fresh reads that the pods become ready.
+2. **Don't apply**: nothing changes.
+3. **View trace in Phoenix** shows how the agent got there.
 
-Each scenario's **designed state** (what "broken as designed" means, checked
-before the agent investigates) lives in
-[ui/src/server/checks.ts](ui/src/server/checks.ts).
+![The trace in Phoenix](docs/images/trace.png)
 
-### Deploy, reset and check
+1. Every model call and tool call, in order, with inputs, outputs and timing.
+2. **View Session** groups all the runs of one chat.
 
-From the UI, or from the command line using the same code:
+The agent is also an HTTP service:
 
 ```bash
-cd ui
-npm run scenarios -- deploy all                  # or one: deploy bad-probe
-npm run scenarios -- check all --wait 180        # wait until each reproduces
-npm run scenarios -- reset bad-probe             # back to broken, e.g. after a fix
-npm run scenarios -- remove bad-probe
+curl -s localhost:8000/v1/runs -H 'content-type: application/json' \
+  -d '{"question": "Checkout in namespace shop is unhealthy. Why?"}'
 ```
 
-A deployed scenario is in one of three states:
+The reply is the report as JSON. When it says `awaiting_approval`, answer with `POST /v1/runs/<run_id>/approval` and `{"approved": true}` or `false`. Set `CLUSTER_MODE=recorded` in `.env` to run against a saved copy of the four scenarios instead of the live cluster (fixes are then never applied).
 
-- **Settling:** not yet broken the way it was designed.
-- **Reproduced:** every designed-state check passes, so it is ready to investigate.
-- **Changed:** someone changed it after deploy, for example the agent's
-  approved fix or a manual `kubectl edit`. Reset to restore it.
+## Run the evaluations
 
-  Detecting this needs no extra bookkeeping. Deploy uses server-side apply,
-  which records who manages each field. A dry-run apply then reports every
-  field someone else has since changed, and who changed it.
+The four scenarios, each asked in two wordings, are a dataset in Phoenix with three graders attached. `docker compose up` sets this up.
 
-**Reset** deletes the scenario's workloads and its events, then deploys it
-again. Clearing events matters: Kubernetes keeps them for an hour, and the
-agent should never investigate a previous run's history. Reset never deletes
-the namespace, because its access rules belong to `cluster.sh`.
+![Opening the evals](docs/images/evals-open.png)
 
-## UI
+1. On the UI's **Scenarios** page, click **Run evals in Phoenix**.
 
-[ui/](ui/) is a React + Vite front end with a small Node API (Fastify) in
-TypeScript. The browser never talks to Kubernetes directly: the API does, as
-the `diagnoster-scenario-manager` identity.
+![Phoenix Playground](docs/images/playground.png)
 
-The API can change the cluster, so pages from other websites open in the same
-browser must not be able to use it:
+1. The model the agent runs on (`diagnoster-openai` or `diagnoster-claude` entries).
+2. Experiment settings: set **repetitions** to 3 or more to see how stable the answers are.
+3. **Run**.
 
-- It answers only requests addressed to `localhost`, `127.0.0.1` or `[::1]`.
-  This blocks DNS rebinding, where another site points its own domain at your
-  machine to read the responses.
-- Every change (deploy, reset, remove) must carry an `x-requested-by` header,
-  which the UI sends. A browser won't send a custom header to another site
-  unless that server allows it, and this one never does.
+![Eval results](docs/images/results.png)
 
-The chat is [assistant-ui](https://www.assistant-ui.com), added through the
-shadcn CLI (`ui/components.json`): its components are copied into
-`ui/src/web/components/` and themed with our palette in
-`ui/src/web/tailwind.css`. Only the chat uses Tailwind; the rest of the UI is
-plain CSS in `ui/src/web/styles.css`, kept in its own CSS layer so the two
-don't override each other. Connecting the agent means replacing one adapter in
-`ui/src/web/AgentChat.tsx`.
+1. The average score of each grader: diagnosis, evidence and action.
+2. Switch between repetitions of the same question.
 
-```
-ui/src/web/       React UI
-ui/src/server/    API, scenario logic and checks, CLI
-ui/src/shared/    types shared by both
-ui/test/          unit tests (no cluster needed)
-```
+On the live cluster all four scenarios must be deployed, and bad-probe reset if you applied its fix. A full run makes real model calls.
 
-The sidebar has two sections:
-
-- **Ask the agent** (`#/`): the user-facing product, a chat in the style of
-  mainstream AI assistants. You describe a problem in your own words and the
-  agent investigates; it knows nothing about scenarios or answer keys. Example
-  questions start a conversation with one click. Until the agent exists, the
-  chat answers that it isn't connected yet.
-- **Scenarios** (`#/scenarios`), for the reviewer (a white box): every scenario
-  with its injected fault, category, state and deploy and reset buttons. Each
-  scenario page shows the injected fault, whether it is ready to investigate,
-  a button that opens Ask the agent with the scenario's question, and the answer
-  key: category, resource, the facts the agent must find and the correct fix,
-  with grading details (evidence sources, ungraded facts, unsafe fixes and why)
-  behind a toggle.
-
-Traces and eval results are not rebuilt in the UI: they live in Phoenix, which
-the sidebar links to.
-
-To work on the UI itself, run it from source instead. It uses port 8787 too, so
-stop the container first (`docker compose stop ui`); Phoenix keeps running.
+The code graders also run without a model, on saved real replies, as in CI:
 
 ```bash
-cd ui && npm install
-npm run dev         # API on :8787 and UI on :5173 with live reload
-npm test            # unit tests
-npm run typecheck
-npm run build && npm start   # production: one server on :8787 serving UI and API
+cd agent && uv run pytest tests/test_real_replies.py tests/test_evaluators.py
 ```
 
-Configuration is environment-based:
+## Design rationale
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `API_PORT` | `8787` | API server port |
-| `HOST` | `127.0.0.1` | API bind address |
-| `SCENARIO_MANAGER_KUBECONFIG` | `.kube/scenario-manager.kubeconfig` | the UI's cluster identity |
-| `SCENARIOS_DIR` | `scenarios/` | scenario definitions |
-| `PHOENIX_URL` | `http://localhost:6006` | where the browser opens traces and evals |
-| `PHOENIX_INTERNAL_URL` | `PHOENIX_URL` | where the API checks that Phoenix is up |
+### 1. Agent framework and orchestration
 
-Phoenix has two URLs because inside a container `localhost` is the container
-itself. Compose sets `PHOENIX_INTERNAL_URL=http://phoenix:6006` (the service
-name), while your browser still opens `http://localhost:6006`. Run from
-source, both are the same and you set neither.
+**PydanticAI**, a thin, typed agent framework, because it covers each requirement:
 
-The kubeconfig is read on every request, so recreating the cluster needs no
-restart. If the cluster is down or the token expired, the UI says so and tells
-you to run `./cluster.sh --up`.
+1. The model chooses each next step, for an unknown number of steps (task): the agent loop.
+2. Every run is bounded by tokens, requests, tool calls and time (task): `UsageLimits` and a timeout.
+3. The fix pauses for a person's approval, then the same run resumes (task): deferred tools.
+4. The answer has a fixed shape, retried when wrong (task): typed `output_type` and output validators.
+5. No vendor lock-in (personal): OpenAI or Claude by setting, standard OpenTelemetry traces.
 
-## Agent
+Not chosen: a raw SDK loop (all of the above hand-written), LangGraph (one looping node doesn't need a graph), a fixed workflow (can't follow the evidence).
 
-[agent/](agent/) is Python 3.12 on [PydanticAI](https://ai.pydantic.dev),
-managed with [uv](https://docs.astral.sh/uv/). So far it holds the **output
-contract** and its tests; the investigation loop, tools and tracing come next.
+Trade-off: a younger API that still changes.
 
-```bash
-cd agent && uv run pytest
-```
+### 2. Tool boundaries
 
-### Why PydanticAI
+1. The agent uses its 7 read-only tools freely, up to the run's limits; its one write tool, `apply_fix`, is deferred until a person approves.
+2. Each tool is narrow: one specific read, with few arguments the agent controls. There is no shell and no generic `kubectl`.
+3. Tool output is plain text, trimmed to a fixed size, so one call can't flood the model's context.
 
-Each requirement of this agent maps to a built-in feature, so we write the
-investigation and not the plumbing:
+### 3. Evaluation approach
 
-| Need | PydanticAI |
-|---|---|
-| A structured answer, checked before we accept it | `output_type=Diagnosis`; a malformed answer goes back to the model to fix |
-| A stopping condition, so it can't loop forever | `UsageLimits` (requests, tool calls), plus our own timeout |
-| Pause for approval before the one fix | deferred tools |
-| Traces in Phoenix | OpenTelemetry built in; Phoenix lists PydanticAI as an integration |
-| Choose the model by config | `provider:model` strings, OpenRouter and Anthropic included |
+1. Consistency over lucky hits: each scenario is asked in two wordings, a healthy scenario catches an agent that always finds a fault, and Phoenix can repeat each question (pass^3: a question passes only if all 3 runs pass).
+2. One grader per question in the task:
+   - Diagnosis (root cause): code checks the category and the resource.
+   - Evidence: code checks that every cited call happened and that the required facts were read from the right objects.
+   - Action (recommended next action): an LLM judge compares it with the answer key's safe and unsafe actions and picks safe_fix, unsafe or not_a_fix.
+3. CI runs the code evaluators on real agent replies, so a change that breaks grading is caught on the PR.
 
-Considered and rejected:
+Room for expension in Evals:
+1. Negetive test scenarios, K8s has nothing wrong, user prompt state otherwise
+2. Hostile test scenarios, Prompt injection, agent misalignment.
+3. Live model calls as part of PR checks (limited to agent ring only)
 
-- **A plain SDK loop**: the same result with more code of our own (retries,
-  limits, output checks).
-- **Deep Agents, Claude Agent SDK**: harnesses for long tasks that come with
-  shell and file tools. That is the opposite of our read-only safety story.
-- **LangGraph**: a graph runtime for many-step workflows; one loop doesn't
-  need it.
-- **Mastra**: TypeScript, and its own evals and tracing would compete with Phoenix.
+### 4. Safety boundary
 
-### The contract
+1. RBAC: the agent reads with a read-only identity and fixes with one that can patch a single Deployment.
+2. Identity is owned by code not the agent.
+3. Approval: nothing changes until the user clicks "Apply fix".
+4. Write identity is limited and scoped to single write verb and path
 
-[agent/src/diagnoster/contract.py](agent/src/diagnoster/contract.py) defines
-two objects with different authors:
-
-- **`Diagnosis`**, written by the model:
-  - root cause: a category from [scenarios/categories.yaml](scenarios/categories.yaml),
-    the faulty resource as `kind/name`, and a short explanation;
-  - evidence: each fact cites the ids of the tool calls that showed it;
-  - next action: `none`, `recommend` or `remediate`, with the exact change
-    when it's `remediate`.
-- **`RunReport`**, written by our code around the run: `complete` or
-  `stopped` (and why), the diagnosis, every tool call that really happened,
-  and the trace id.
-
-The report is the answer; the trace is the story. Evidence cites tool-call ids
-only: our code derives what each call looked at (which object, which aspect)
-from its arguments, so the model can't vouch for its own evidence. The graders
-then check each required fact against those real calls.
-
-The contract rejects answers that contradict themselves: a fault without a
-resource, "no fault" with a resource or an action, `remediate` without a fix,
-or evidence citing no tool call.
-
-The category list is read from `scenarios/categories.yaml` (or
-`CATEGORIES_FILE`), the same file the answer keys use, so they can't drift apart.
-
-### Model
-
-Chosen by configuration, defaulting to a cheap model through OpenRouter
-(`openrouter:openai/gpt-6-luna`), with the Claude API as an option
-(`anthropic:claude-haiku-5-5`). The choice will be revisited once the evals
-can compare models.
-
-## Safety boundary
-
-Nothing in this project uses your admin kubeconfig after `--up`. Three
-identities, defined in [rbac/diagnoster-rbac.yaml](rbac/diagnoster-rbac.yaml),
-each get only what their job needs, and the **API server** enforces it. A
-confused or prompt-injected agent still can't exceed these permissions.
-
-| Identity | Used by | Can | Cannot |
-|---|---|---|---|
-| `diagnoster-reader` | the agent, every investigation step | get/list pods, logs, events, Services, endpoints, ConfigMaps, Deployments, ReplicaSets in the four scenario namespaces | read Secrets, exec into pods, change anything, see any other namespace |
-| `diagnoster-remediator` | the agent's one fix, after approval | get and patch `deployment/payments-api` in `payments` | anything else, including scaling or deleting that same Deployment |
-| `diagnoster-scenario-manager` | the UI, to deploy and reset scenarios | create, change and delete workloads, and clear events, in the four scenario namespaces | read Secrets, exec, create RoleBindings, delete namespaces, touch any other namespace |
-
-The access rules are owned by `cluster.sh`, not by the UI: the UI can fill the
-scenario namespaces with workloads, but it can never change who may do what.
-
-`--up` checks every row of this table with `kubectl auth can-i` and fails on
-any surprise, so the boundary is tested, not just described.
-
-Kubeconfigs in `.kube/` carry short-lived tokens (24h, `TOKEN_DURATION` to
-change). Each identity gets two:
-
-- `.kube/<identity>.kubeconfig` for use from your machine
-- `.kube/<identity>.internal.kubeconfig` for use from a container on the `kind`
-  Docker network (`docker run --network kind ...`), where the API server is
-  reached at `https://diagnoster-control-plane:6443` instead of a localhost port
-
-## CI
-
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs three jobs:
-
-- **build:** shellcheck on `cluster.sh`, then type-check, unit tests and a
-  production build of the UI. No cluster needed.
-- **agent:** the agent's unit tests (`uv run pytest`). No model calls.
-- **cluster:** `./cluster.sh --up` (which verifies all permissions), deploys
-  every scenario through the same TypeScript code the UI uses, waits until each
-  reproduces, checks that reset restores the broken state, and confirms the
-  agent's identity can't read Secrets.
-
-No LLM is involved in any of them, so they are free and deterministic.
-
-## Repository layout
-
-```
-cluster.sh                   the one script: --up / --down
-compose.yaml                 the UI and Phoenix as containers
-cluster/kind-config.yaml     kind cluster (node image pinned by digest)
-rbac/diagnoster-rbac.yaml    identities, roles, scenario namespaces, access rules
-scenarios/<name>/            manifest and answer key per scenario
-ui/                          the UI and its API
-agent/                       the agent (Python)
-```
-
-## Notes
-
-- Scenario images are preloaded into the node so scenarios start fast. They are
-  saved for the local platform only, because `kind load docker-image` fails on
-  multi-platform images with Docker's containerd image store.
-- In a crash loop, the useful log line can be in the current (just crashed)
-  container or in the previous one, depending on timing. The checks read both;
-  the agent's log tool will need to as well.
-- Readiness probes often fail once with "connection refused" while a container
-  starts. The `bad-probe` check requires the designed 404, so a startup blip
-  doesn't count as the scenario reproducing.
