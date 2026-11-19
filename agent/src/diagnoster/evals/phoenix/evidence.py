@@ -15,10 +15,10 @@ from fnmatch import fnmatchcase
 
 
 def _report(output):
-    """The agent's RunReport: its reply is the report as JSON.
+    """The agent's RunReport: its reply is the report as JSON in a json code block.
 
-    Older replies had readable text first and the report in a final fenced
-    json block; those are still read, so earlier experiments can be re-graded.
+    The last json block is read, so older replies (readable text, then the
+    block) and plain JSON replies can still be re-graded.
     """
     if isinstance(output, dict) and "messages" in output:  # how Phoenix stores a Playground run
         output = output["messages"][-1]["content"]

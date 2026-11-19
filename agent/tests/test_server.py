@@ -23,6 +23,7 @@ from diagnoster import tracing
 from diagnoster.agent import SYSTEM_PROMPT
 from diagnoster.config import Settings
 from diagnoster.contract import RunReport
+from diagnoster.reply import unwrap
 from diagnoster.server import create_app, model_for
 
 SETTINGS = Settings(model="openai:the-default", namespaces=("catalog", "shop"), phoenix_url="http://phoenix.test")
@@ -47,13 +48,13 @@ def openai_content(response) -> str:
 
 def report_in(content: str) -> RunReport:
     """The reply is JSON: the report plus the model, the cluster and the trace link."""
-    reply = json.loads(content)
+    reply = json.loads(unwrap(content))
     return RunReport.model_validate({k: v for k, v in reply.items() if k not in ("model", "cluster", "trace_url")})
 
 
 def test_the_openai_format_answers_with_a_summary_and_the_full_report():
     content = openai_content(client().post("/v1/chat/completions", json=ASK))
-    assert json.loads(content)["cluster"] == "live"
+    assert json.loads(unwrap(content))["cluster"] == "live"
     assert report_in(content).diagnosis.root_cause.resource == "service/catalog"
     report = report_in(content)
     assert report.status == "complete"
@@ -76,7 +77,7 @@ def test_recorded_mode_answers_from_the_snapshot_with_no_cluster():
     # Settings without the catalog namespace: the snapshot brings its own.
     settings = Settings(model="openai:the-default", namespaces=("elsewhere",), cluster_mode="recorded")
     content = openai_content(client(settings=settings, live=no_cluster).post("/v1/chat/completions", json=ASK))
-    assert json.loads(content)["cluster"] == "recorded"
+    assert json.loads(unwrap(content))["cluster"] == "recorded"
     report = report_in(content)
     assert report.status == "complete"
     assert report.tool_calls[0].sources  # the Service was found in the snapshot
@@ -131,7 +132,7 @@ def test_the_reply_names_the_model_that_answered():
     response = app.post("/v1/messages", json=CLAUDE_ASK)
     assert asked == ["anthropic:claude-haiku-5-5"]
     assert response.json()["model"] == "anthropic:claude-haiku-5-5"
-    assert json.loads(response.json()["content"][0]["text"])["model"] == "anthropic:claude-haiku-5-5"
+    assert json.loads(unwrap(response.json()["content"][0]["text"]))["model"] == "anthropic:claude-haiku-5-5"
 
 
 def test_an_openai_stream_carries_the_same_answer_in_openai_chunks():
@@ -276,7 +277,7 @@ def test_the_root_span_says_the_cluster_and_where_the_prompt_came_from(spans):
     assert root.attributes["diagnoster.cluster"] == "recorded"
     assert root.attributes["diagnoster.prompt_source"] == "request"
     # The reply links to this trace: Phoenix sends no trace context, so this is the only link.
-    assert json.loads(content)["trace_url"] == f"http://phoenix.test/redirects/traces/{format(root.context.trace_id, '032x')}"
+    assert json.loads(unwrap(content))["trace_url"] == f"http://phoenix.test/redirects/traces/{format(root.context.trace_id, '032x')}"
 
 
 def dataclasses_replace(settings, **changes):
