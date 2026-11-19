@@ -90,6 +90,45 @@ jobs:
         if: failure()
         run: docker logs agent; docker logs ui
 
+  # On main, after every check above passes: publish both images to GitHub's
+  # registry, for amd64 (Linux, Windows) and arm64 (Apple Silicon), so
+  # `docker compose up` pulls them instead of building. PRs never publish.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, agent, evals, images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: agent
+            dockerfile: agent/Dockerfile
+          - name: ui
+            dockerfile: ui/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/chefcontrol/agentic-diagnoster-${{ matrix.name }}:latest
+            ghcr.io/chefcontrol/agentic-diagnoster-${{ matrix.name }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
   # Did this PR touch anything the cluster job checks? It takes ~1.5 min, so a
   # PR that only changes the agent or the chat skips it.
   changes:

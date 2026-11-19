@@ -22,6 +22,9 @@
 
 services:
   ui:
+    # Published by CI on every merge to main; `docker compose up -d` pulls it.
+    # `docker compose up -d --build` builds it from this checkout instead.
+    image: ghcr.io/chefcontrol/agentic-diagnoster-ui:latest
     build:
       context: .
       dockerfile: ui/Dockerfile
@@ -68,6 +71,9 @@ services:
   # CLUSTER_MODE in .env picks the cluster: live (default) or recorded, a saved
   # snapshot of the four scenarios that needs no cluster.
   agent:
+    # Published by CI on every merge to main; `docker compose up -d` pulls it.
+    # `docker compose up -d --build` builds it from this checkout instead.
+    image: ghcr.io/chefcontrol/agentic-diagnoster-agent:latest
     build:
       context: .
       dockerfile: agent/Dockerfile
@@ -111,6 +117,9 @@ services:
   # `docker compose up phoenix-setup`. The image is the agent's; only this
   # service sees the answer keys. It reads .env only to see which keys are set.
   phoenix-setup:
+    # Published by CI on every merge to main; `docker compose up -d` pulls it.
+    # `docker compose up -d --build` builds it from this checkout instead.
+    image: ghcr.io/chefcontrol/agentic-diagnoster-agent:latest
     build:
       context: .
       dockerfile: agent/Dockerfile
