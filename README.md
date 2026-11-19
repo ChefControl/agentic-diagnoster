@@ -110,11 +110,19 @@ The four scenarios, each asked in two wordings, are a dataset in Phoenix with th
 
 On the live cluster all four scenarios must be deployed, and bad-probe reset if you applied its fix. A full run makes real model calls.
 
-The code graders also run without a model, on saved real replies, as in CI:
+### Without a cluster
+
+The same evals run against the recorded cluster: a saved snapshot of the four scenarios. The model, the tools and the graders are all real; only the cluster reads are replayed. No kind, no deploying, and nothing is ever changed, so bad-probe never needs a reset.
+
+1. Set `CLUSTER_MODE=recorded` in `.env`.
+2. Start everything, creating the Docker network kind would otherwise make:
 
 ```bash
-cd agent && uv run pytest tests/test_real_replies.py tests/test_evaluators.py
+docker network create kind
+docker compose up -d
 ```
+
+Then run the evals in Phoenix as above.
 
 ## Design rationale
 
