@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch: # run by hand, e.g. for the cluster job while it is off
+  workflow_dispatch:
 
 jobs:
   # Fast checks with no cluster: lint, types, unit tests, production build.
@@ -40,14 +40,59 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: agent/uv.lock
-      - run: uv run --locked pytest
+      - run: uv run --locked pytest --ignore=tests/test_evaluators.py --ignore=tests/test_real_replies.py --ignore=tests/test_setup.py
+
+  # The evals, without a model: the code evaluators grade the agent's real
+  # replies from an eval run (tests/replies/) and hand-written failing ones,
+  # the answer keys build a valid dataset, and the Phoenix setup is checked
+  # against a fake Phoenix. The action judge needs a model; it runs in Phoenix.
+  evals:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: agent/uv.lock
+      - name: Code evaluators on real agent replies
+        run: uv run --locked pytest -v tests/test_real_replies.py
+      - name: Evaluators, answer keys and dataset
+        run: uv run --locked pytest tests/test_evaluators.py tests/test_setup.py
+
+  # The containers build, and start cleanly with nothing around them: the
+  # agent on the recorded cluster with no API key (a question then fails with
+  # a 502 that names the missing key), the UI with no cluster.
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the agent image
+        run: docker build -t diagnoster-agent:ci -f agent/Dockerfile .
+      - name: Build the UI image
+        run: docker build -t diagnoster-ui:ci -f ui/Dockerfile .
+      - name: The agent starts and fails cleanly without a key
+        run: |
+          docker run -d --name agent -e CLUSTER_MODE=recorded -p 8000:8000 diagnoster-agent:ci
+          curl -fsS --retry 15 --retry-delay 1 --retry-all-errors localhost:8000/healthz | grep -q '"cluster":"recorded"'
+          code=$(curl -s -o reply.json -w '%{http_code}' -X POST localhost:8000/v1/runs \
+            -H 'content-type: application/json' -d '{"question":"Is anything wrong in namespace shop?"}')
+          cat reply.json
+          test "$code" = 502 && grep -q OPENAI_API_KEY reply.json
+      - name: The UI starts without a cluster
+        run: |
+          docker run -d --name ui -e SCENARIO_MANAGER_KUBECONFIG=/nonexistent -p 8787:8787 diagnoster-ui:ci
+          curl -fsS --retry 15 --retry-delay 1 --retry-all-errors localhost:8787/api/health | grep -q '"reachable":false'
+          curl -fsS localhost:8787/ | grep -q '<div id="root">'
+      - name: Container logs
+        if: failure()
+        run: docker logs agent; docker logs ui
 
   # Proves the safety boundary holds and every failure scenario still
   # reproduces, using the same code the UI uses. No LLM involved.
-  # Off for now on pushes and PRs because it is slow (~1.5 min); run it from
-  # the Actions tab ("Run workflow") when needed.
   cluster:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: build
     steps:

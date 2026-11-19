@@ -1,0 +1,158 @@
+{
+  "model": "openai:gpt-6-luna",
+  "cluster": "live",
+  "trace_url": null,
+  "status": "complete",
+  "stop_reason": null,
+  "diagnosis": {
+    "root_cause": {
+      "category": "missing_config",
+      "resource": "configmap/checkout-config",
+      "explanation": "Checkout crashes because it expects DATABASE_URL, but its environment comes from checkout-config, which provides the database connection string under DB_URL. The logs explicitly say DATABASE_URL is not set."
+    },
+    "evidence": [
+      {
+        "fact": "The checkout pod is not ready and is in CrashLoopBackOff with repeated restarts.",
+        "tool_call_ids": [
+          "tc_1",
+          "tc_3"
+        ]
+      },
+      {
+        "fact": "The checkout Deployment imports environment values from ConfigMap checkout-config.",
+        "tool_call_ids": [
+          "tc_4"
+        ]
+      },
+      {
+        "fact": "The ConfigMap defines the database URL under DB_URL, not DATABASE_URL.",
+        "tool_call_ids": [
+          "tc_5"
+        ]
+      },
+      {
+        "fact": "Both current and previous container logs say DATABASE_URL is not set and checkout cannot connect to the database.",
+        "tool_call_ids": [
+          "tc_6"
+        ]
+      }
+    ],
+    "next_action": {
+      "summary": "The proposed ConfigMap key rename could not be applied because changes to configmap/checkout-config are not permitted. Have an authorized operator rename DB_URL to DATABASE_URL or configure the expected variable through an approved mechanism.",
+      "kind": "recommend",
+      "proposed_fix": null
+    }
+  },
+  "tool_calls": [
+    {
+      "id": "tc_1",
+      "provider_id": "call_B187MAlXFO1PYbPrly220SQK",
+      "tool": "list_pods",
+      "args": {
+        "namespace": "shop"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "checkout-868f7c7c-v5hjc",
+          "aspect": "status"
+        },
+        {
+          "kind": "Pod",
+          "name": "frontend-6458597456-lwf74",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_2",
+      "provider_id": "call_4DjCPJDD7klLWGrocRQ4l5Gs",
+      "tool": "list_workloads",
+      "args": {
+        "namespace": "shop"
+      },
+      "sources": []
+    },
+    {
+      "id": "tc_3",
+      "provider_id": "call_pyhuOHucVEJBznnKSDk5QWwc",
+      "tool": "get_events",
+      "args": {
+        "namespace": "shop",
+        "workload": "checkout"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "checkout-868f7c7c-v5hjc",
+          "aspect": "events"
+        }
+      ]
+    },
+    {
+      "id": "tc_4",
+      "provider_id": "call_nt230B3nRU2rK4qWJXFR2q3z",
+      "tool": "get_deployment",
+      "args": {
+        "namespace": "shop",
+        "name": "checkout"
+      },
+      "sources": [
+        {
+          "kind": "Deployment",
+          "name": "checkout",
+          "aspect": "spec"
+        },
+        {
+          "kind": "Deployment",
+          "name": "checkout",
+          "aspect": "status"
+        }
+      ]
+    },
+    {
+      "id": "tc_5",
+      "provider_id": "call_Ssdcn9mltF8fJ3N3Oi1kOkCm",
+      "tool": "get_configmap",
+      "args": {
+        "namespace": "shop",
+        "name": "checkout-config"
+      },
+      "sources": [
+        {
+          "kind": "ConfigMap",
+          "name": "checkout-config",
+          "aspect": "data"
+        }
+      ]
+    },
+    {
+      "id": "tc_6",
+      "provider_id": "call_sy9tFiLteKllIQ6TKInsMUG1",
+      "tool": "get_pod_logs",
+      "args": {
+        "namespace": "shop",
+        "workload": "checkout"
+      },
+      "sources": [
+        {
+          "kind": "Pod",
+          "name": "checkout-868f7c7c-v5hjc",
+          "aspect": "logs"
+        }
+      ]
+    }
+  ],
+  "trace_id": null,
+  "remediation": {
+    "status": "not_allowed",
+    "detail": "Not applied: only deployment/payments-api may be changed, not configmap/checkout-config. It stays a recommendation.",
+    "fix": {
+      "target": "configmap/checkout-config",
+      "field": "data key name",
+      "from": "DB_URL",
+      "to": "DATABASE_URL"
+    },
+    "expected_effect": "Checkout should receive the database URL under the variable name it requires and should stop crashing from the missing DATABASE_URL setting."
+  }
+}
