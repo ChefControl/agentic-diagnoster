@@ -100,7 +100,7 @@ The four scenarios, each asked in two wordings, are a dataset in Phoenix with th
 ![Phoenix Playground](docs/images/playground.png)
 
 1. The model the agent runs on (`diagnoster-openai` or `diagnoster-claude` entries).
-2. Experiment settings: set **repetitions** to 3 or more to see how stable the answers are.
+2. **Settings**: set **Repetitions** to 3 or more to see how stable the answers are.
 3. **Run**.
 
 ![Eval results](docs/images/results.png)
