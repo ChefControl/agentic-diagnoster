@@ -8,6 +8,7 @@ experiments run the real agent, with the model you pick in Phoenix's menu.
     GET  /v1/models
     POST /v1/chat/completions   OpenAI's format; a plain model name is an OpenAI model
     POST /v1/messages           Anthropic's format; a plain model name is a Claude model
+    POST /v1/runs               for people (the UI's chat): the report as JSON, with a session id
 
 The cluster is the agent's own setting, CLUSTER_MODE: `live` reads the real
 cluster as the diagnoster-reader; `recorded` replays the saved snapshot and
@@ -56,6 +57,7 @@ log = logging.getLogger(__name__)
 
 # "openai:gpt-6-luna": a provider PydanticAI knows, then the model's name there.
 QUALIFIED = re.compile(r"^[a-z][a-z0-9_-]*:\S+$")
+SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 
 class BadRequest(Exception):
@@ -239,6 +241,56 @@ def create_app(
         content = render(report, model_name, settings.phoenix_url, cluster=settings.cluster_mode)
         return fmt.reply(model_name, content, ask.stream)
 
+    async def runs(request: Request) -> Response:
+        """One chat question. The UI draws the answer from `report`.
+
+        `session_id` groups a chat's runs into one Phoenix session. Model
+        failures answer 502, like the vendor formats, so the chat can say what
+        went wrong instead of showing an empty answer.
+        """
+        try:
+            body = await request.json()
+        except ValueError:
+            return _openai_error(400, "The body must be JSON.", "invalid_request_error")
+        question = body.get("question") if isinstance(body, dict) else None
+        if not isinstance(question, str) or not question.strip():
+            return _openai_error(400, "The body needs a `question`.", "invalid_request_error")
+        session_id = body.get("session_id")
+        if session_id is not None and (not isinstance(session_id, str) or not SESSION_ID.match(session_id)):
+            return _openai_error(400, "`session_id` must be 1-128 letters, digits, - or _.", "invalid_request_error")
+        requested = body.get("model") if isinstance(body.get("model"), str) else None
+        model_name = model_for(requested, "openai", settings.model)
+        try:
+            run_cluster, run_settings = cluster()
+        except FileNotFoundError as e:
+            return _openai_error(503, str(e), "cluster_unavailable")
+        attributes = {"diagnoster.cluster": settings.cluster_mode, "diagnoster.prompt_source": "code", "diagnoster.entry": "chat"}
+        try:
+            report = await diagnose(
+                question.strip(),
+                run_settings,
+                run_cluster,
+                model=resolve_model(model_name),
+                attributes=attributes,
+                session_id=session_id,
+                tracer_provider=tracer_provider,
+                raise_model_errors=True,
+            )
+        except Exception as e:  # noqa: BLE001 - the chat gets an error, not an answer
+            log.warning("model error with %s: %s: %s", model_name, type(e).__name__, e)
+            return _openai_error(502, f"{type(e).__name__}: {e}", "model_error")
+        trace_url = f"{settings.phoenix_url}/redirects/traces/{report.trace_id}" if report.trace_id else None
+        return JSONResponse(
+            {
+                "run_id": uuid.uuid4().hex,
+                "status": report.status,
+                "model": model_name,
+                "cluster": settings.cluster_mode,
+                "trace_url": trace_url,
+                "report": report.model_dump(mode="json"),
+            }
+        )
+
     async def healthz(request: Request) -> Response:
         return JSONResponse({"status": "ok", "cluster": settings.cluster_mode, "model": settings.model})
 
@@ -263,6 +315,7 @@ def create_app(
             Route("/v1/models", models),
             Route("/v1/chat/completions", chat_completions, methods=["POST"]),
             Route("/v1/messages", messages, methods=["POST"]),
+            Route("/v1/runs", runs, methods=["POST"]),
         ],
         lifespan=lifespan,
     )

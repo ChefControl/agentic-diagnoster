@@ -109,3 +109,55 @@ export interface ClusterHealth {
   reachable: boolean;
   message?: string;
 }
+
+// ---- the agent's answer (agent/src/diagnoster/contract.py) ----
+
+export interface AgentEvidence {
+  fact: string;
+  tool_call_ids: string[];
+}
+
+export interface AgentProposedFix {
+  target: string;
+  field: string;
+  from: string;
+  to: string;
+}
+
+export interface AgentDiagnosis {
+  root_cause: { category: string; resource: string | null; explanation: string };
+  evidence: AgentEvidence[];
+  next_action: { summary: string; kind: "none" | "recommend" | "remediate"; proposed_fix: AgentProposedFix | null };
+}
+
+export interface AgentToolCall {
+  id: string;
+  tool: string;
+  args: Record<string, unknown>;
+  sources: { kind: string; name: string; aspect: string }[];
+}
+
+export type AgentStopReason = "request_limit" | "tool_call_limit" | "timeout" | "invalid_output" | "model_error";
+
+export interface AgentReport {
+  status: "complete" | "stopped";
+  stop_reason: AgentStopReason | null;
+  diagnosis: AgentDiagnosis | null;
+  tool_calls: AgentToolCall[];
+  trace_id: string | null;
+}
+
+// One chat question, answered by the agent's POST /v1/runs.
+export interface AgentRun {
+  run_id: string;
+  status: "complete" | "stopped";
+  model: string;
+  cluster: "live" | "recorded";
+  trace_url: string | null;
+  report: AgentReport;
+}
+
+export interface AgentQuestion {
+  question: string;
+  session_id: string;
+}

@@ -283,3 +283,52 @@ def dataclasses_replace(settings, **changes):
     import dataclasses
 
     return dataclasses.replace(settings, **changes)
+
+
+# ---- /v1/runs: the chat's endpoint ---------------------------------------------------
+
+
+def test_a_chat_run_answers_with_the_report_and_where_it_came_from():
+    reply = client().post("/v1/runs", json={"question": QUESTION, "session_id": "chat-1"}).json()
+    assert reply["status"] == "complete"
+    assert reply["model"] == "openai:the-default"
+    assert reply["cluster"] == "live"
+    assert len(reply["run_id"]) == 32
+    report = RunReport.model_validate(reply["report"])
+    assert report.diagnosis.root_cause.resource == "service/catalog"
+
+
+def test_a_chat_run_that_hits_a_limit_is_stopped_not_an_error():
+    settings = Settings(namespaces=("catalog",), tool_calls_limit=1)
+    reply = client(FunctionModel(loop_forever), settings).post("/v1/runs", json={"question": QUESTION}).json()
+    assert reply["status"] == "stopped"
+    assert reply["report"]["stop_reason"] == "tool_call_limit"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{}, {"question": " "}, {"question": 3}, {"question": QUESTION, "session_id": "has space"}, {"question": QUESTION, "session_id": 7}],
+)
+def test_a_chat_run_needs_a_question_and_a_plain_session_id(body):
+    assert client().post("/v1/runs", json=body).status_code == 400
+
+
+def test_a_chat_run_with_a_model_error_is_a_502():
+    def broken(messages, info):
+        raise RuntimeError("429 rate limited")
+
+    response = client(FunctionModel(broken)).post("/v1/runs", json={"question": QUESTION})
+    assert response.status_code == 502
+    assert "429 rate limited" in response.json()["error"]["message"]
+
+
+def test_a_chat_run_carries_its_session_into_the_trace(spans):
+    provider, exporter = spans
+    reply = client(tracer_provider=provider).post("/v1/runs", json={"question": QUESTION, "session_id": "chat-42"}).json()
+    root = next(s for s in exporter.get_finished_spans() if s.name == "diagnose")
+    assert root.attributes["session.id"] == "chat-42"
+    # PydanticAI's spans carry the same id, so Phoenix sees one session, not one per run.
+    run = next(s for s in exporter.get_finished_spans() if s.name.startswith("invoke_agent"))
+    assert run.attributes["gen_ai.conversation.id"] == "chat-42"
+    assert root.attributes["diagnoster.entry"] == "chat"
+    assert reply["trace_url"].endswith(format(root.context.trace_id, "032x"))

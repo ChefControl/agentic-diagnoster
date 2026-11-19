@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  type AgentQuestion,
+  type AgentRun,
   type ClusterHealth,
   type PhoenixStatus,
   REQUEST_HEADER,
@@ -10,11 +12,13 @@ import {
 } from "../shared/types.ts";
 
 // Sent on every call; the API requires it on changes (see app.ts).
-async function call<T>(method: string, path: string): Promise<T> {
-  const res = await fetch(path, { method, headers: { [REQUEST_HEADER]: REQUEST_HEADER_VALUE } });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
-  return body as T;
+async function call<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const headers: Record<string, string> = { [REQUEST_HEADER]: REQUEST_HEADER_VALUE };
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal });
+  const answer = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(answer.error ?? `Request failed (${res.status})`);
+  return answer as T;
 }
 
 export const api = {
@@ -26,6 +30,7 @@ export const api = {
   deploy: (id: string) => call<ScenarioStatus>("POST", `/api/scenarios/${id}/deploy`),
   reset: (id: string) => call<ScenarioStatus>("POST", `/api/scenarios/${id}/reset`),
   remove: (id: string) => call<ScenarioStatus>("DELETE", `/api/scenarios/${id}`),
+  ask: (q: AgentQuestion, signal?: AbortSignal) => call<AgentRun>("POST", "/api/agent/runs", q, signal),
 };
 
 // Fetch now and every `ms` while mounted; refetch whenever `key` changes.

@@ -131,3 +131,78 @@ describe("the evals link", () => {
     });
   });
 });
+
+describe("the chat asks the agent through the API", () => {
+  const headers = { [REQUEST_HEADER]: REQUEST_HEADER_VALUE };
+
+  async function withAgent(answer: (body: string) => [number, unknown], check: (url: string, seen: string[]) => Promise<void>) {
+    const seen: string[] = [];
+    const agent = createServer((req, res) => {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        seen.push(`${req.method} ${req.url} ${body}`);
+        const [status, json] = answer(body);
+        res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(json));
+      });
+    });
+    await new Promise<void>((done) => agent.listen(0, "127.0.0.1", done));
+    try {
+      await check(`http://127.0.0.1:${(agent.address() as AddressInfo).port}`, seen);
+    } finally {
+      agent.close();
+    }
+  }
+
+  it("forwards the question and the session id, and returns the agent's answer", async () => {
+    await withAgent(
+      () => [200, { run_id: "r1", status: "complete" }],
+      async (agentUrl, seen) => {
+        const res = await buildApp({ service, agentUrl }).inject({
+          method: "POST",
+          url: "/api/agent/runs",
+          headers,
+          payload: { question: "Why is checkout failing?", session_id: "chat-1", extra: "dropped" },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({ run_id: "r1", status: "complete" });
+        expect(seen).toEqual(['POST /v1/runs {"question":"Why is checkout failing?","session_id":"chat-1"}']);
+      },
+    );
+  });
+
+  it("passes the agent's error message on with its status", async () => {
+    await withAgent(
+      () => [502, { error: { message: "RuntimeError: 429 rate limited", type: "model_error" } }],
+      async (agentUrl) => {
+        const res = await buildApp({ service, agentUrl }).inject({
+          method: "POST",
+          url: "/api/agent/runs",
+          headers,
+          payload: { question: "Why?" },
+        });
+        expect(res.statusCode).toBe(502);
+        expect(res.json().error).toBe("RuntimeError: 429 rate limited");
+      },
+    );
+  });
+
+  it("says how to start the agent when it isn't running", async () => {
+    const res = await buildApp({ service, agentUrl: "http://127.0.0.1:9" }).inject({
+      method: "POST",
+      url: "/api/agent/runs",
+      headers,
+      payload: { question: "Why?" },
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toContain("docker compose up -d agent");
+  });
+
+  it("needs a question and the UI's header", async () => {
+    const app = buildApp({ service, agentUrl: "http://127.0.0.1:9" });
+    const empty = await app.inject({ method: "POST", url: "/api/agent/runs", headers, payload: { question: " " } });
+    expect(empty.statusCode).toBe(400);
+    const foreign = await app.inject({ method: "POST", url: "/api/agent/runs", payload: { question: "Why?" } });
+    expect(foreign.statusCode).toBe(403);
+  });
+});
