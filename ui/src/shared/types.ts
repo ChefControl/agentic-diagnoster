@@ -137,7 +137,13 @@ export interface AgentToolCall {
   sources: { kind: string; name: string; aspect: string }[];
 }
 
-export type AgentStopReason = "request_limit" | "tool_call_limit" | "timeout" | "invalid_output" | "model_error";
+export type AgentStopReason =
+  | "request_limit"
+  | "tool_call_limit"
+  | "token_limit"
+  | "timeout"
+  | "invalid_output"
+  | "model_error";
 
 // What became of the fix the agent asked to apply; written by the agent's code, not the model.
 export interface AgentRemediation {

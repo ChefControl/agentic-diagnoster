@@ -1,7 +1,7 @@
 """Settings, read from the environment and the repository's .env file.
 
 Real environment variables win over .env, so a container or a one-off
-`MODEL=... uv run diagnose` overrides the file.
+`MODEL=...` set for one run overrides the file.
 """
 
 import os
@@ -47,6 +47,9 @@ class Settings:
     phoenix_url: str = "http://localhost:6006"
     request_limit: int = 10
     tool_calls_limit: int = 15
+    # Input plus output tokens over the whole run, approval resume included.
+    # Real runs used 4k-40k (median ~13k), so this stops only a runaway.
+    total_tokens_limit: int = 100_000
     run_timeout_s: float = 180
 
 
@@ -68,5 +71,6 @@ def load_settings() -> Settings:
         phoenix_url=env("PHOENIX_URL", defaults.phoenix_url).rstrip("/"),
         request_limit=int(env("REQUEST_LIMIT", defaults.request_limit)),
         tool_calls_limit=int(env("TOOL_CALLS_LIMIT", defaults.tool_calls_limit)),
+        total_tokens_limit=int(env("TOTAL_TOKENS_LIMIT", defaults.total_tokens_limit)),
         run_timeout_s=float(env("RUN_TIMEOUT_S", defaults.run_timeout_s)),
     )
